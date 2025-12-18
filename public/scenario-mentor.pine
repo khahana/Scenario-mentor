@@ -1,0 +1,290 @@
+// Scenario Trading Mentor™ - TradingView Indicator
+// This indicator visualizes Battle Card scenarios on your chart
+// Version 1.0
+
+//@version=5
+indicator("Scenario Trading Mentor", overlay=true, max_lines_count=50, max_boxes_count=20, max_labels_count=50)
+
+// ========== INPUTS ==========
+
+// Scenario A - Primary
+showA = input.bool(true, "Show Scenario A", group="Scenario A - Primary")
+colorA = input.color(color.new(#10b981, 0), "Color", group="Scenario A - Primary")
+probA = input.int(40, "Probability %", minval=0, maxval=100, group="Scenario A - Primary")
+triggerA = input.float(0, "Trigger Price", group="Scenario A - Primary")
+entryA = input.float(0, "Entry Price", group="Scenario A - Primary")
+stopA = input.float(0, "Stop Loss", group="Scenario A - Primary")
+target1A = input.float(0, "Target 1", group="Scenario A - Primary")
+target2A = input.float(0, "Target 2", group="Scenario A - Primary")
+target3A = input.float(0, "Target 3", group="Scenario A - Primary")
+
+// Scenario B - Secondary
+showB = input.bool(true, "Show Scenario B", group="Scenario B - Secondary")
+colorB = input.color(color.new(#3b82f6, 0), "Color", group="Scenario B - Secondary")
+probB = input.int(30, "Probability %", minval=0, maxval=100, group="Scenario B - Secondary")
+triggerB = input.float(0, "Trigger Price", group="Scenario B - Secondary")
+entryB = input.float(0, "Entry Price", group="Scenario B - Secondary")
+stopB = input.float(0, "Stop Loss", group="Scenario B - Secondary")
+target1B = input.float(0, "Target 1", group="Scenario B - Secondary")
+
+// Scenario C - Chaos
+showC = input.bool(true, "Show Scenario C", group="Scenario C - Chaos")
+colorC = input.color(color.new(#f59e0b, 0), "Color", group="Scenario C - Chaos")
+probC = input.int(20, "Probability %", minval=0, maxval=100, group="Scenario C - Chaos")
+triggerC = input.float(0, "Trigger Price", group="Scenario C - Chaos")
+
+// Scenario D - Invalidation
+showD = input.bool(true, "Show Scenario D", group="Scenario D - Invalidation")
+colorD = input.color(color.new(#ef4444, 0), "Color", group="Scenario D - Invalidation")
+probD = input.int(10, "Probability %", minval=0, maxval=100, group="Scenario D - Invalidation")
+invalidationPrice = input.float(0, "Invalidation Level", group="Scenario D - Invalidation")
+
+// Display Options
+showLabels = input.bool(true, "Show Labels", group="Display")
+showZones = input.bool(true, "Show Zone Fills", group="Display")
+zoneTransparency = input.int(85, "Zone Transparency", minval=0, maxval=100, group="Display")
+lineWidth = input.int(2, "Line Width", minval=1, maxval=4, group="Display")
+
+// ========== FUNCTIONS ==========
+
+// Draw scenario level with label
+drawLevel(price, col, label_text, style, show_label) =>
+    var line l = na
+    var label lbl = na
+    if not na(price) and price > 0
+        l := line.new(bar_index - 50, price, bar_index + 20, price, 
+             color=col, width=lineWidth, style=style, extend=extend.right)
+        if show_label and showLabels
+            lbl := label.new(bar_index + 25, price, label_text, 
+                   color=color.new(col, 80), textcolor=col, 
+                   style=label.style_label_left, size=size.small)
+    [l, lbl]
+
+// Draw zone between two prices
+drawZone(price1, price2, col) =>
+    var box b = na
+    if showZones and not na(price1) and not na(price2) and price1 > 0 and price2 > 0
+        b := box.new(bar_index - 30, math.max(price1, price2), bar_index + 30, math.min(price1, price2),
+             bgcolor=color.new(col, zoneTransparency), border_color=color.new(col, 70), border_width=1)
+    b
+
+// ========== DRAWING LOGIC ==========
+
+// Clean up old drawings
+var line[] lines = array.new_line()
+var label[] labels = array.new_label()
+var box[] boxes = array.new_box()
+
+if barstate.islast
+    // Clear previous drawings
+    for i = 0 to array.size(lines) - 1
+        line.delete(array.get(lines, i))
+    for i = 0 to array.size(labels) - 1
+        label.delete(array.get(labels, i))
+    for i = 0 to array.size(boxes) - 1
+        box.delete(array.get(boxes, i))
+    
+    array.clear(lines)
+    array.clear(labels)
+    array.clear(boxes)
+
+    // ===== SCENARIO A =====
+    if showA
+        // Entry
+        if entryA > 0
+            l1 = line.new(bar_index - 50, entryA, bar_index + 20, entryA, 
+                 color=colorA, width=lineWidth, style=line.style_solid)
+            array.push(lines, l1)
+            if showLabels
+                lbl1 = label.new(bar_index + 25, entryA, "A Entry " + str.tostring(probA) + "%", 
+                       color=color.new(colorA, 80), textcolor=colorA, 
+                       style=label.style_label_left, size=size.small)
+                array.push(labels, lbl1)
+        
+        // Stop
+        if stopA > 0
+            l2 = line.new(bar_index - 50, stopA, bar_index + 20, stopA, 
+                 color=color.red, width=1, style=line.style_dashed)
+            array.push(lines, l2)
+            if showLabels
+                lbl2 = label.new(bar_index + 25, stopA, "A Stop", 
+                       color=color.new(color.red, 80), textcolor=color.red, 
+                       style=label.style_label_left, size=size.tiny)
+                array.push(labels, lbl2)
+        
+        // Targets
+        if target1A > 0
+            l3 = line.new(bar_index - 50, target1A, bar_index + 20, target1A, 
+                 color=color.new(colorA, 30), width=1, style=line.style_dotted)
+            array.push(lines, l3)
+            if showLabels
+                lbl3 = label.new(bar_index + 25, target1A, "A T1", 
+                       color=color.new(colorA, 80), textcolor=colorA, 
+                       style=label.style_label_left, size=size.tiny)
+                array.push(labels, lbl3)
+        
+        if target2A > 0
+            l4 = line.new(bar_index - 50, target2A, bar_index + 20, target2A, 
+                 color=color.new(colorA, 30), width=1, style=line.style_dotted)
+            array.push(lines, l4)
+            if showLabels
+                lbl4 = label.new(bar_index + 25, target2A, "A T2", 
+                       color=color.new(colorA, 80), textcolor=colorA, 
+                       style=label.style_label_left, size=size.tiny)
+                array.push(labels, lbl4)
+        
+        if target3A > 0
+            l5 = line.new(bar_index - 50, target3A, bar_index + 20, target3A, 
+                 color=color.new(colorA, 30), width=1, style=line.style_dotted)
+            array.push(lines, l5)
+            if showLabels
+                lbl5 = label.new(bar_index + 25, target3A, "A T3", 
+                       color=color.new(colorA, 80), textcolor=colorA, 
+                       style=label.style_label_left, size=size.tiny)
+                array.push(labels, lbl5)
+        
+        // Zone fill
+        if showZones and entryA > 0 and target1A > 0
+            b1 = box.new(bar_index - 30, math.max(entryA, target1A), bar_index + 30, math.min(entryA, target1A),
+                 bgcolor=color.new(colorA, zoneTransparency), border_color=na)
+            array.push(boxes, b1)
+
+    // ===== SCENARIO B =====
+    if showB and entryB > 0
+        l6 = line.new(bar_index - 50, entryB, bar_index + 20, entryB, 
+             color=colorB, width=lineWidth, style=line.style_solid)
+        array.push(lines, l6)
+        if showLabels
+            lbl6 = label.new(bar_index + 25, entryB, "B Entry " + str.tostring(probB) + "%", 
+                   color=color.new(colorB, 80), textcolor=colorB, 
+                   style=label.style_label_left, size=size.small)
+            array.push(labels, lbl6)
+        
+        if stopB > 0
+            l7 = line.new(bar_index - 50, stopB, bar_index + 20, stopB, 
+                 color=color.red, width=1, style=line.style_dashed)
+            array.push(lines, l7)
+        
+        if target1B > 0
+            l8 = line.new(bar_index - 50, target1B, bar_index + 20, target1B, 
+                 color=color.new(colorB, 30), width=1, style=line.style_dotted)
+            array.push(lines, l8)
+
+    // ===== SCENARIO C =====
+    if showC and triggerC > 0
+        l9 = line.new(bar_index - 50, triggerC, bar_index + 20, triggerC, 
+             color=colorC, width=lineWidth, style=line.style_dashed)
+        array.push(lines, l9)
+        if showLabels
+            lbl7 = label.new(bar_index + 25, triggerC, "⚡ Chaos " + str.tostring(probC) + "%", 
+                   color=color.new(colorC, 80), textcolor=colorC, 
+                   style=label.style_label_left, size=size.small)
+            array.push(labels, lbl7)
+
+    // ===== SCENARIO D - INVALIDATION =====
+    if showD and invalidationPrice > 0
+        l10 = line.new(bar_index - 50, invalidationPrice, bar_index + 20, invalidationPrice, 
+              color=colorD, width=lineWidth + 1, style=line.style_solid)
+        array.push(lines, l10)
+        if showLabels
+            lbl8 = label.new(bar_index + 25, invalidationPrice, "🚫 INVALID " + str.tostring(probD) + "%", 
+                   color=color.new(colorD, 80), textcolor=colorD, 
+                   style=label.style_label_left, size=size.normal)
+            array.push(labels, lbl8)
+        
+        // Invalidation zone (danger zone)
+        if showZones
+            isAbove = invalidationPrice > close
+            zoneEnd = isAbove ? invalidationPrice * 1.02 : invalidationPrice * 0.98
+            b2 = box.new(bar_index - 50, math.max(invalidationPrice, zoneEnd), 
+                 bar_index + 50, math.min(invalidationPrice, zoneEnd),
+                 bgcolor=color.new(colorD, 90), border_color=colorD, border_width=1)
+            array.push(boxes, b2)
+
+// ========== INFO TABLE ==========
+
+showTable = input.bool(true, "Show Info Table", group="Display")
+
+if showTable
+    var table infoTable = table.new(position.top_right, 5, 6, bgcolor=color.new(#1a1a24, 10), border_color=#27272a, border_width=1)
+    
+    if barstate.islast
+        // Headers
+        table.cell(infoTable, 0, 0, "Scenario", bgcolor=#0f172a, text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 0, "Prob", bgcolor=#0f172a, text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 2, 0, "Entry", bgcolor=#0f172a, text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 3, 0, "Stop", bgcolor=#0f172a, text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 4, 0, "Target", bgcolor=#0f172a, text_color=color.white, text_size=size.small)
+        
+        // Scenario A
+        table.cell(infoTable, 0, 1, "🎯 A", text_color=colorA, text_size=size.small)
+        table.cell(infoTable, 1, 1, str.tostring(probA) + "%", text_color=colorA, text_size=size.small)
+        table.cell(infoTable, 2, 1, entryA > 0 ? str.tostring(entryA, "#.##") : "-", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 3, 1, stopA > 0 ? str.tostring(stopA, "#.##") : "-", text_color=color.red, text_size=size.small)
+        table.cell(infoTable, 4, 1, target1A > 0 ? str.tostring(target1A, "#.##") : "-", text_color=colorA, text_size=size.small)
+        
+        // Scenario B
+        table.cell(infoTable, 0, 2, "🔄 B", text_color=colorB, text_size=size.small)
+        table.cell(infoTable, 1, 2, str.tostring(probB) + "%", text_color=colorB, text_size=size.small)
+        table.cell(infoTable, 2, 2, entryB > 0 ? str.tostring(entryB, "#.##") : "-", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 3, 2, stopB > 0 ? str.tostring(stopB, "#.##") : "-", text_color=color.red, text_size=size.small)
+        table.cell(infoTable, 4, 2, target1B > 0 ? str.tostring(target1B, "#.##") : "-", text_color=colorB, text_size=size.small)
+        
+        // Scenario C
+        table.cell(infoTable, 0, 3, "⚡ C", text_color=colorC, text_size=size.small)
+        table.cell(infoTable, 1, 3, str.tostring(probC) + "%", text_color=colorC, text_size=size.small)
+        table.cell(infoTable, 2, 3, triggerC > 0 ? str.tostring(triggerC, "#.##") : "-", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 3, 3, "-", text_color=color.gray, text_size=size.small)
+        table.cell(infoTable, 4, 3, "-", text_color=color.gray, text_size=size.small)
+        
+        // Scenario D
+        table.cell(infoTable, 0, 4, "🚫 D", text_color=colorD, text_size=size.small)
+        table.cell(infoTable, 1, 4, str.tostring(probD) + "%", text_color=colorD, text_size=size.small)
+        table.cell(infoTable, 2, 4, invalidationPrice > 0 ? str.tostring(invalidationPrice, "#.##") : "-", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 3, 4, "-", text_color=color.gray, text_size=size.small)
+        table.cell(infoTable, 4, 4, "NO TRADE", text_color=colorD, text_size=size.small)
+        
+        // Total probability check
+        totalProb = probA + probB + probC + probD
+        probColor = totalProb == 100 ? color.green : color.red
+        table.cell(infoTable, 0, 5, "Total", text_color=color.white, text_size=size.small)
+        table.cell(infoTable, 1, 5, str.tostring(totalProb) + "%", text_color=probColor, text_size=size.small)
+        table.cell(infoTable, 2, 5, "", text_size=size.small)
+        table.cell(infoTable, 3, 5, "", text_size=size.small)
+        table.cell(infoTable, 4, 5, totalProb == 100 ? "✓" : "≠100!", text_color=probColor, text_size=size.small)
+
+// ========== ALERTS ==========
+
+// Alert when price crosses scenario triggers
+triggerAAlert = ta.cross(close, triggerA) and triggerA > 0
+triggerBAlert = ta.cross(close, triggerB) and triggerB > 0
+triggerCAlert = ta.cross(close, triggerC) and triggerC > 0
+invalidationAlert = ta.cross(close, invalidationPrice) and invalidationPrice > 0
+
+alertcondition(triggerAAlert, "Scenario A Trigger", "Price crossed Scenario A trigger level!")
+alertcondition(triggerBAlert, "Scenario B Trigger", "Price crossed Scenario B trigger level!")
+alertcondition(triggerCAlert, "Scenario C Trigger", "⚡ CHAOS: Price crossed Scenario C trigger level!")
+alertcondition(invalidationAlert, "Scenario D - INVALIDATION", "🚫 INVALIDATION: Setup is dead. Walk away!")
+
+// Entry alerts
+entryAAlert = ta.cross(close, entryA) and entryA > 0
+entryBAlert = ta.cross(close, entryB) and entryB > 0
+
+alertcondition(entryAAlert, "Scenario A Entry", "Price at Scenario A entry level - Review Battle Card!")
+alertcondition(entryBAlert, "Scenario B Entry", "Price at Scenario B entry level - Review Battle Card!")
+
+// Stop alerts
+stopAAlert = ta.cross(close, stopA) and stopA > 0
+stopBAlert = ta.cross(close, stopB) and stopB > 0
+
+alertcondition(stopAAlert, "Scenario A Stop Hit", "⚠️ Scenario A stop level hit!")
+alertcondition(stopBAlert, "Scenario B Stop Hit", "⚠️ Scenario B stop level hit!")
+
+// Target alerts
+target1AAlert = ta.cross(close, target1A) and target1A > 0
+target2AAlert = ta.cross(close, target2A) and target2A > 0
+target3AAlert = ta.cross(close, target3A) and target3A > 0
+
+alertcondition(target1AAlert, "Scenario A Target 1 Hit", "🎯 Target 1 reached!")
+alertcondition(target2AAlert, "Scenario A Target 2 Hit", "🎯🎯 Target 2 reached!")
+alertcondition(target3AAlert, "Scenario A Target 3 Hit", "🎯🎯🎯 FULL TARGET reached!")

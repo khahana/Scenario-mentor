@@ -1,0 +1,381 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --background: #0a0a0f;
+  --background-secondary: #12121a;
+  --background-tertiary: #1a1a24;
+  --foreground: #fafafa;
+  --foreground-secondary: #a1a1aa;
+  
+  --accent: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.4);
+  
+  --scenario-a: #10b981;
+  --scenario-b: #3b82f6;
+  --scenario-c: #f59e0b;
+  --scenario-d: #ef4444;
+  
+  --border: #27272a;
+  --card: #18181b;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+/* Focus states */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: white;
+}
+
+/* Base layer customizations */
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl;
+  }
+  
+  h2 {
+    @apply text-2xl;
+  }
+  
+  h3 {
+    @apply text-xl;
+  }
+  
+  h4 {
+    @apply text-lg;
+  }
+}
+
+/* Component layer */
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-card rounded-xl border border-border p-4 transition-all duration-200;
+  }
+  
+  .card-hover {
+    @apply hover:border-border-hover hover:bg-card-hover;
+  }
+  
+  .card-glow {
+    @apply shadow-glow-sm hover:shadow-glow-md;
+  }
+  
+  /* Buttons */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 
+           flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply bg-accent text-white hover:bg-accent-hover active:scale-[0.98];
+  }
+  
+  .btn-secondary {
+    @apply bg-background-tertiary text-foreground border border-border 
+           hover:bg-background-elevated hover:border-border-hover;
+  }
+  
+  .btn-ghost {
+    @apply bg-transparent text-foreground-secondary hover:text-foreground hover:bg-background-tertiary;
+  }
+  
+  .btn-danger {
+    @apply bg-danger/10 text-danger border border-danger/20 
+           hover:bg-danger/20 hover:border-danger/40;
+  }
+  
+  .btn-success {
+    @apply bg-success/10 text-success border border-success/20 
+           hover:bg-success/20 hover:border-success/40;
+  }
+  
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 bg-background-secondary border border-border rounded-lg
+           text-foreground placeholder:text-foreground-muted
+           focus:border-accent focus:ring-1 focus:ring-accent/50
+           transition-all duration-200;
+  }
+  
+  .input-error {
+    @apply border-danger focus:border-danger focus:ring-danger/50;
+  }
+  
+  /* Labels */
+  .label {
+    @apply text-sm font-medium text-foreground-secondary mb-1.5 block;
+  }
+  
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-scenario-a {
+    @apply bg-scenario-a/20 text-scenario-a border border-scenario-a/30;
+  }
+  
+  .badge-scenario-b {
+    @apply bg-scenario-b/20 text-scenario-b border border-scenario-b/30;
+  }
+  
+  .badge-scenario-c {
+    @apply bg-scenario-c/20 text-scenario-c border border-scenario-c/30;
+  }
+  
+  .badge-scenario-d {
+    @apply bg-scenario-d/20 text-scenario-d border border-scenario-d/30;
+  }
+  
+  /* Scenario indicators */
+  .scenario-indicator {
+    @apply w-3 h-3 rounded-full;
+  }
+  
+  .scenario-indicator-a {
+    @apply bg-scenario-a shadow-[0_0_8px_rgba(16,185,129,0.5)];
+  }
+  
+  .scenario-indicator-b {
+    @apply bg-scenario-b shadow-[0_0_8px_rgba(59,130,246,0.5)];
+  }
+  
+  .scenario-indicator-c {
+    @apply bg-scenario-c shadow-[0_0_8px_rgba(245,158,11,0.5)];
+  }
+  
+  .scenario-indicator-d {
+    @apply bg-scenario-d shadow-[0_0_8px_rgba(239,68,68,0.5)];
+  }
+  
+  /* Progress bars */
+  .progress-bar {
+    @apply h-2 bg-background-tertiary rounded-full overflow-hidden;
+  }
+  
+  .progress-bar-fill {
+    @apply h-full rounded-full transition-all duration-500;
+  }
+  
+  /* Probability gauge */
+  .probability-gauge {
+    @apply relative w-24 h-24;
+  }
+  
+  /* Dividers */
+  .divider {
+    @apply border-t border-border my-4;
+  }
+  
+  /* Tooltips */
+  .tooltip {
+    @apply absolute z-50 px-2 py-1 text-xs bg-background-elevated border border-border 
+           rounded shadow-lg whitespace-nowrap;
+  }
+  
+  /* Modals */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-40;
+  }
+  
+  .modal-content {
+    @apply fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 
+           bg-background-secondary border border-border rounded-2xl 
+           shadow-2xl z-50 max-h-[90vh] overflow-auto;
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    @apply w-64 h-screen bg-background-secondary border-r border-border 
+           flex flex-col fixed left-0 top-0;
+  }
+  
+  /* Main content area */
+  .main-content {
+    @apply ml-64 min-h-screen p-6;
+  }
+  
+  /* Grid layouts */
+  .grid-dashboard {
+    @apply grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4;
+  }
+  
+  /* Chart container */
+  .chart-container {
+    @apply bg-background-secondary rounded-xl border border-border overflow-hidden;
+  }
+  
+  /* AI Chat */
+  .chat-bubble-user {
+    @apply bg-accent/20 text-foreground rounded-2xl rounded-br-md px-4 py-3 max-w-[80%] ml-auto;
+  }
+  
+  .chat-bubble-assistant {
+    @apply bg-background-tertiary text-foreground rounded-2xl rounded-bl-md px-4 py-3 max-w-[80%];
+  }
+  
+  /* Glow effects */
+  .glow-accent {
+    @apply shadow-[0_0_20px_rgba(59,130,246,0.3)];
+  }
+  
+  .glow-success {
+    @apply shadow-[0_0_20px_rgba(16,185,129,0.3)];
+  }
+  
+  .glow-warning {
+    @apply shadow-[0_0_20px_rgba(245,158,11,0.3)];
+  }
+  
+  .glow-danger {
+    @apply shadow-[0_0_20px_rgba(239,68,68,0.3)];
+  }
+  
+  /* Animations */
+  .animate-in {
+    @apply animate-fade-in;
+  }
+  
+  .pulse-live {
+    @apply animate-pulse-slow;
+  }
+}
+
+/* Utility layer */
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-accent to-cyan-400 bg-clip-text text-transparent;
+  }
+  
+  .bg-gradient-radial {
+    background: radial-gradient(ellipse at center, var(--tw-gradient-from), var(--tw-gradient-to));
+  }
+  
+  .border-gradient {
+    border-image: linear-gradient(to right, var(--accent), #06b6d4) 1;
+  }
+  
+  /* Number formatting */
+  .font-mono-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Chart specific styles */
+.tv-lightweight-charts {
+  border-radius: 0.75rem;
+}
+
+/* Price ticker animations */
+@keyframes price-up {
+  0% { color: inherit; }
+  50% { color: #10b981; }
+  100% { color: inherit; }
+}
+
+@keyframes price-down {
+  0% { color: inherit; }
+  50% { color: #ef4444; }
+  100% { color: inherit; }
+}
+
+.price-flash-up {
+  animation: price-up 0.5s ease-out;
+}
+
+.price-flash-down {
+  animation: price-down 0.5s ease-out;
+}
+
+/* Scenario zone overlays */
+.scenario-zone {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.15;
+  border: 1px dashed;
+}
+
+.scenario-zone-a {
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.2) 0%, transparent 100%);
+  border-color: #10b981;
+}
+
+.scenario-zone-b {
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.2) 0%, transparent 100%);
+  border-color: #3b82f6;
+}
+
+.scenario-zone-c {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, transparent 100%);
+  border-color: #f59e0b;
+}
+
+.scenario-zone-d {
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.2) 0%, transparent 100%);
+  border-color: #ef4444;
+}

@@ -1,0 +1,243 @@
+// Prisma Schema for Scenario Trading Mentor
+// Database: PostgreSQL (or SQLite for development)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// User model
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  name          String?
+  avatar        String?
+  preferences   Json?         // Trading preferences, UI settings
+  experience    String        @default("intermediate") // beginner, intermediate, advanced
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  battleCards   BattleCard[]
+  patterns      Pattern[]
+  aiSessions    AISession[]
+}
+
+// Battle Card - Core trading plan
+model BattleCard {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  // Setup info
+  instrument      String      // BTC/USDT, ETH/USDT, etc.
+  timeframe       String      // 1H, 4H, 1D, etc.
+  chartSnapshot   String?     // URL or base64 of chart image
+  setupType       String      // breakout, reversal, continuation, etc.
+  
+  // Thesis
+  thesis          String      // Main trading thesis
+  narrative       String?     // Dominant market narrative
+  contradiction   String?     // What contradicts narrative
+  trappedParticipants String? // Who's trapped
+  challengerScore Int         @default(5) // 1-10 contrarian score
+  
+  // SPIN Analysis
+  spinAnalysis    SpinAnalysis?
+  
+  // Scenarios
+  scenarios       Scenario[]
+  
+  // Status
+  status          String      @default("draft") // draft, active, monitoring, closed, archived
+  activeScenario  String?     // Currently active scenario ID
+  
+  // Metadata
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  closedAt        DateTime?
+  
+  // Relations
+  trades          Trade[]
+  aiInteractions  AIInteraction[]
+}
+
+// SPIN Analysis
+model SpinAnalysis {
+  id              String      @id @default(uuid())
+  battleCardId    String      @unique
+  battleCard      BattleCard  @relation(fields: [battleCardId], references: [id], onDelete: Cascade)
+  
+  // Situation
+  htfTrend        String?     // Higher timeframe trend
+  volatilityRegime String?    // expansion, contraction, transition
+  keyLevels       Json?       // Array of key price levels
+  sessionContext  String?     // Asian, London, NY, etc.
+  
+  // Problem
+  priceStuck      String?     // Where price is stuck
+  failedTests     String?     // Failed breakout/breakdown levels
+  effortVsResult  String?     // Divergence observation
+  trappedWho      String?     // Who's trapped
+  
+  // Implication
+  cascadeIfBreaks String?     // What happens if level breaks
+  stopClusters    String?     // Where stops are clustered
+  forcedActions   String?     // Who gets forced to act
+  nextDecision    String?     // Next key decision point
+  
+  // Need-Payoff
+  rrRatio         Float?      // Risk:Reward ratio
+  positionSize    Float?      // Suggested position size %
+  edgeDefinition  String?     // What's the specific edge
+  worthRisk       Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Trading Scenario (A, B, C, D)
+model Scenario {
+  id              String      @id @default(uuid())
+  battleCardId    String
+  battleCard      BattleCard  @relation(fields: [battleCardId], references: [id], onDelete: Cascade)
+  
+  type            String      // A, B, C, D
+  name            String      // "Primary", "Secondary", "Chaos", "Invalidation"
+  description     String?
+  
+  // Trigger conditions
+  triggerPrice    Float?      // Price level that triggers
+  triggerCondition String?    // Description of trigger
+  
+  // Trade parameters (for A, B, C)
+  entryPrice      Float?
+  stopLoss        Float?
+  target1         Float?
+  target2         Float?
+  target3         Float?
+  positionSize    Float?      // % of capital
+  
+  // For invalidation (D)
+  invalidationReason String?
+  lessonPrompt    String?
+  
+  // Probability
+  probability     Int         @default(25) // 0-100
+  
+  // Status
+  isActive        Boolean     @default(false)
+  triggeredAt     DateTime?
+  
+  // Cascade - child scenarios
+  parentId        String?
+  parent          Scenario?   @relation("ScenarioCascade", fields: [parentId], references: [id])
+  children        Scenario[]  @relation("ScenarioCascade")
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  trades          Trade[]
+}
+
+// Trade record
+model Trade {
+  id              String      @id @default(uuid())
+  battleCardId    String
+  battleCard      BattleCard  @relation(fields: [battleCardId], references: [id])
+  scenarioId      String?
+  scenario        Scenario?   @relation(fields: [scenarioId], references: [id])
+  
+  // Execution
+  entryPrice      Float
+  exitPrice       Float?
+  quantity        Float
+  side            String      // long, short
+  
+  // Results
+  pnl             Float?
+  pnlPercent      Float?
+  fees            Float?
+  
+  // Review
+  followedPlan    Boolean?
+  emotionalState  String?     // calm, anxious, fomo, revenge, etc.
+  lessonsLearned  String?
+  
+  // Metadata
+  enteredAt       DateTime    @default(now())
+  exitedAt        DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Pattern library
+model Pattern {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  name            String
+  description     String?
+  setupType       String      // breakout, reversal, etc.
+  timeframes      String      // Comma-separated timeframes
+  
+  // Performance
+  occurrences     Int         @default(0)
+  winRate         Float       @default(0)
+  avgRR           Float       @default(0)
+  
+  // Visual
+  chartExample    String?     // Screenshot/URL
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// AI Session
+model AISession {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  mode            String      // builder, challenger, coach, debrief
+  context         Json?       // Battle card context, etc.
+  
+  interactions    AIInteraction[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// AI Interaction
+model AIInteraction {
+  id              String      @id @default(uuid())
+  sessionId       String
+  session         AISession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  battleCardId    String?
+  battleCard      BattleCard? @relation(fields: [battleCardId], references: [id])
+  
+  role            String      // user, assistant
+  content         String
+  metadata        Json?       // Insights extracted, etc.
+  
+  createdAt       DateTime    @default(now())
+}
+
+// Price Alert
+model Alert {
+  id              String      @id @default(uuid())
+  instrument      String
+  price           Float
+  condition       String      // above, below, cross
+  message         String?
+  
+  triggered       Boolean     @default(false)
+  triggeredAt     DateTime?
+  
+  createdAt       DateTime    @default(now())
+}
