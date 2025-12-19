@@ -254,11 +254,15 @@ export function SmartBattleCardCreator() {
     
     const oldProb = current.probability;
     const diff = newProb - oldProb;
-    const othersTotal = others.reduce((sum, s) => sum + s.probability, 0);
+    const othersTotal = others.reduce((sum, s) => sum + (s.probability || 0), 0);
     
     const updatedScenarios = analysis.scenarios.map(s => {
       if (s.type === type) {
         return { ...s, probability: newProb };
+      }
+      // Prevent NaN by checking for zero division
+      if (othersTotal === 0 || !s.probability) {
+        return s;
       }
       const ratio = s.probability / othersTotal;
       return { ...s, probability: Math.max(0, Math.round(s.probability - diff * ratio)) };
@@ -673,12 +677,12 @@ function ScenarioCard({ scenario, currentPrice, onProbabilityChange }: {
 
       {(scenario.type === 'A' || scenario.type === 'B') && scenario.entry && (
         <div className="mt-3 pt-3 border-t border-border/50">
-          {/* Entry Zone - 0.15% trigger range */}
+          {/* Entry Zone - 0.1% trigger range */}
           {scenario.entry && (
             <div className="mb-2">
               <span className="text-foreground-muted text-sm">Entry Zone</span>
               <p className="font-mono font-medium text-foreground text-base">
-                ${formatPrice(scenario.entry * 0.9985)} — ${formatPrice(scenario.entry * 1.0015)}
+                ${formatPrice(scenario.entry * 0.999)} — ${formatPrice(scenario.entry * 1.001)}
               </p>
             </div>
           )}
