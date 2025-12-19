@@ -673,12 +673,12 @@ function ScenarioCard({ scenario, currentPrice, onProbabilityChange }: {
 
       {(scenario.type === 'A' || scenario.type === 'B') && scenario.entry && (
         <div className="mt-3 pt-3 border-t border-border/50">
-          {/* Entry Zone - 0.3% trigger range */}
+          {/* Entry Zone - 0.15% trigger range */}
           {scenario.entry && (
             <div className="mb-2">
-              <span className="text-foreground-muted text-sm">Entry Zone (±0.3%)</span>
+              <span className="text-foreground-muted text-sm">Entry Zone</span>
               <p className="font-mono font-medium text-foreground text-base">
-                ${formatPrice(scenario.entry * 0.997)} — ${formatPrice(scenario.entry * 1.003)}
+                ${formatPrice(scenario.entry * 0.9985)} — ${formatPrice(scenario.entry * 1.0015)}
               </p>
             </div>
           )}

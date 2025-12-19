@@ -80,39 +80,6 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Active Battle Cards Quick View */}
-        {activeCards.length > 0 && (
-          <div className="p-4 border-t border-border">
-            <h3 className="text-xs font-semibold text-foreground-muted uppercase tracking-wider mb-3">
-              Active Setups
-            </h3>
-            <div className="space-y-2">
-              {activeCards.slice(0, 3).map((card) => (
-                <button
-                  key={card.id}
-                  onClick={() => {
-                    // Set the current card and navigate to battle card view
-                    useBattleCardStore.getState().setCurrentCard(card);
-                    setActiveView('battle-card');
-                  }}
-                  className="w-full flex items-center gap-3 p-2 rounded-lg bg-background-tertiary hover:bg-background-elevated transition-colors group"
-                >
-                  <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {card.instrument}
-                    </p>
-                    <p className="text-xs text-foreground-muted truncate">
-                      {card.thesis?.slice(0, 30)}...
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-foreground-muted group-hover:text-foreground transition-colors" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Settings */}
         <div className="p-4 border-t border-border">
           <button 

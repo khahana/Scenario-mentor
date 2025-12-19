@@ -5,7 +5,6 @@ import {
   Bell, 
   Wifi, 
   WifiOff, 
-  Search,
   MessageSquare,
   Plus,
   ChevronDown
@@ -19,7 +18,6 @@ interface TopBarProps {
 }
 
 export function TopBar({ isConnected }: TopBarProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const prices = useMarketDataStore(state => state.prices);
   const watchlist = useMarketDataStore(state => state.watchlist);
@@ -90,14 +88,6 @@ export function TopBar({ isConnected }: TopBarProps) {
                 </>
               )}
             </div>
-
-            {/* Search */}
-            <button 
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="p-2 rounded-lg hover:bg-background-tertiary transition-colors"
-            >
-              <Search className="w-5 h-5 text-foreground-secondary" />
-            </button>
 
             {/* Alerts */}
             <button 

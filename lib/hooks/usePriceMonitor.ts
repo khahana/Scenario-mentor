@@ -42,7 +42,7 @@ export function usePriceMonitor() {
     let status: TriggerStatus['status'] = 'far';
     let message = '';
 
-    if (absDistance <= 0.3) {
+    if (absDistance <= 0.15) {
       status = 'at_trigger';
       message = `🎯 AT ENTRY: $${currentPrice.toLocaleString()}`;
     } else if (absDistance <= 1.5) {

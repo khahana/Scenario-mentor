@@ -334,8 +334,8 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
           {/* Secondary Scenarios (C & D) - Compact Row */}
           {triggerStatuses.some(({ scenario }) => scenario.type === 'C' || scenario.type === 'D') && (
             <div className="px-4 pb-3">
-              <div className="flex items-center gap-2 p-2 bg-background-tertiary/50 rounded-lg">
-                <span className="text-xs text-foreground-muted">Alt scenarios:</span>
+              <div className="flex items-center gap-3 p-2 bg-background-tertiary/50 rounded-lg flex-wrap">
+                <span className="text-xs text-foreground-muted">Alt:</span>
                 {triggerStatuses
                   .filter(({ scenario }) => scenario.type === 'C' || scenario.type === 'D')
                   .map(({ scenario, status, distance }) => {
@@ -343,11 +343,11 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                     return (
                       <div 
                         key={scenario.type}
-                        className="flex items-center gap-2 px-2 py-1 rounded-md bg-background-tertiary"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background-tertiary flex-1 min-w-[200px]"
                         style={{ borderLeft: `3px solid ${color}` }}
                       >
                         <span className="text-xs font-bold" style={{ color }}>{scenario.type}</span>
-                        <span className="text-xs text-foreground-secondary truncate max-w-[120px]">{scenario.name}</span>
+                        <span className="text-xs text-foreground-secondary flex-1">{scenario.name}</span>
                         <span className="text-xs text-foreground-muted">{scenario.probability}%</span>
                         {status !== 'far' && (
                           <span className={cn(
@@ -554,12 +554,13 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
               <p className={cn(
                 "text-[10px] font-semibold uppercase tracking-wider mb-0.5",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground-muted'
-              )}>Entry</p>
+              )}>Entry Zone</p>
               <p className={cn(
                 "text-sm font-mono font-bold",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground'
-              )}>${formatPrice(scenario.entryPrice)}</p>
-              <p className="text-[10px] font-mono text-foreground-muted/60">Zone ±0.3%</p>
+              )}>
+                ${formatPrice(scenario.entryPrice * 0.9985)} - ${formatPrice(scenario.entryPrice * 1.0015)}
+              </p>
             </div>
             
             {/* Stop Loss */}
