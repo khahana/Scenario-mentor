@@ -197,6 +197,7 @@ export function BattleCardEditor() {
                 symbol={currentCard.instrument} 
                 interval={currentCard.timeframe || '1H'}
                 scenarios={currentCard.scenarios}
+                showEMAs={true}
               />
             ) : (
               <div className="h-full flex items-center justify-center text-foreground-muted">

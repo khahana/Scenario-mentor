@@ -381,6 +381,7 @@ export function SmartBattleCardCreator() {
                 symbol={instrument} 
                 interval={timeframe}
                 scenarios={analysis?.scenarios as any}
+                showEMAs={true}
               />
             </div>
           </div>
