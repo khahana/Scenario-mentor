@@ -188,6 +188,11 @@ export interface BattleCard {
   status: BattleCardStatus;
   activeScenario: string | null;
   
+  // Re-assessment tracking
+  lastTechnicalReassess?: Date | null;
+  lastAIReassess?: Date | null;
+  reassessmentNotes?: string;
+  
   // Metadata
   createdAt: Date;
   updatedAt: Date;

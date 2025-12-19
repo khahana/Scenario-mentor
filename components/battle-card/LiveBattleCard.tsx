@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Target, 
   Clock, 
@@ -16,7 +16,10 @@ import {
   DollarSign,
   Activity,
   LogOut,
-  Edit3
+  Edit3,
+  RefreshCw,
+  Brain,
+  AlertCircle
 } from 'lucide-react';
 import { useBattleCardStore, useMarketDataStore } from '@/lib/stores';
 import { usePaperTradingStore } from '@/lib/stores/paperTradingStore';
@@ -24,6 +27,10 @@ import { usePriceMonitor } from '@/lib/hooks/usePriceMonitor';
 import { cn, getScenarioColor, formatPrice, timeAgo } from '@/lib/utils/helpers';
 import { TradingChart } from '@/components/charts/TradingChart';
 import type { BattleCard, Scenario } from '@/types';
+
+// Constants for reassessment cooldowns
+const TECHNICAL_REASSESS_INTERVAL = 10 * 60 * 1000; // 10 minutes
+const AI_REASSESS_COOLDOWN = 15 * 60 * 1000; // 15 minutes
 
 interface LiveBattleCardProps {
   card: BattleCard;
@@ -37,6 +44,13 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const [editingPosition, setEditingPosition] = useState(false);
   const [editStopLoss, setEditStopLoss] = useState<string>('');
   const [editTarget, setEditTarget] = useState<string>('');
+  
+  // Re-assessment state
+  const [isReassessing, setIsReassessing] = useState(false);
+  const [isAIReassessing, setIsAIReassessing] = useState(false);
+  const [reassessmentResult, setReassessmentResult] = useState<string | null>(null);
+  const [technicalCooldown, setTechnicalCooldown] = useState(0);
+  const [aiCooldown, setAICooldown] = useState(0);
   
   const { updateBattleCard, deleteBattleCard } = useBattleCardStore();
   const prices = useMarketDataStore(state => state.prices);
@@ -67,6 +81,216 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   , card.scenarios[0]);
   const isNonPrimaryTrigger = position && highestProbScenario && 
     position.scenarioType !== highestProbScenario.type;
+
+  // Calculate cooldowns for reassessment
+  useEffect(() => {
+    const updateCooldowns = () => {
+      const now = Date.now();
+      
+      // Technical cooldown
+      if (card.lastTechnicalReassess) {
+        const techElapsed = now - new Date(card.lastTechnicalReassess).getTime();
+        const techRemaining = Math.max(0, TECHNICAL_REASSESS_INTERVAL - techElapsed);
+        setTechnicalCooldown(techRemaining);
+      } else {
+        setTechnicalCooldown(0);
+      }
+      
+      // AI cooldown
+      if (card.lastAIReassess) {
+        const aiElapsed = now - new Date(card.lastAIReassess).getTime();
+        const aiRemaining = Math.max(0, AI_REASSESS_COOLDOWN - aiElapsed);
+        setAICooldown(aiRemaining);
+      } else {
+        setAICooldown(0);
+      }
+    };
+    
+    updateCooldowns();
+    const interval = setInterval(updateCooldowns, 1000);
+    return () => clearInterval(interval);
+  }, [card.lastTechnicalReassess, card.lastAIReassess]);
+
+  // Auto technical reassessment every 10 minutes (only for cards without position)
+  useEffect(() => {
+    if (position) return; // Skip if position is taken
+    
+    const checkAutoReassess = () => {
+      const now = Date.now();
+      const lastReassess = card.lastTechnicalReassess 
+        ? new Date(card.lastTechnicalReassess).getTime() 
+        : 0;
+      
+      if (now - lastReassess >= TECHNICAL_REASSESS_INTERVAL) {
+        runTechnicalReassessment();
+      }
+    };
+    
+    // Check immediately on mount
+    checkAutoReassess();
+    
+    // Then check every minute
+    const interval = setInterval(checkAutoReassess, 60 * 1000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [position, card.id]);
+
+  // Technical Reassessment - Updates levels based on current price action
+  const runTechnicalReassessment = useCallback(async () => {
+    if (!currentPrice) return;
+    
+    setIsReassessing(true);
+    setReassessmentResult(null);
+    
+    try {
+      // Fetch fresh market data
+      const response = await fetch(`/api/market?symbol=${symbol}&interval=${card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase()}`);
+      const data = await response.json();
+      
+      if (data.candles && data.candles.length > 0) {
+        const candles = data.candles;
+        const prices24h = candles.slice(-24);
+        
+        // Calculate key technical levels
+        const high24h = Math.max(...prices24h.map((c: any) => c.high));
+        const low24h = Math.min(...prices24h.map((c: any) => c.low));
+        const range = high24h - low24h;
+        
+        // Find recent swing points
+        const recentHighs = candles.slice(-50).map((c: any) => c.high);
+        const recentLows = candles.slice(-50).map((c: any) => c.low);
+        const resistance = Math.max(...recentHighs.slice(-20));
+        const support = Math.min(...recentLows.slice(-20));
+        
+        // Assess each scenario's validity
+        let validityNotes: string[] = [];
+        let updatedScenarios = card.scenarios.map(scenario => {
+          if (!scenario.entryPrice || !scenario.stopLoss || !scenario.target1) return scenario;
+          
+          const entryDistance = Math.abs(currentPrice - scenario.entryPrice) / currentPrice * 100;
+          const stopDistance = Math.abs(currentPrice - scenario.stopLoss) / currentPrice * 100;
+          const targetDistance = Math.abs(scenario.target1 - currentPrice) / currentPrice * 100;
+          
+          // Check if entry is still reasonable (within 5% of current)
+          const entryValid = entryDistance < 5;
+          // Check if stop hasn't been hit
+          const stopValid = scenario.entryPrice > scenario.stopLoss 
+            ? currentPrice > scenario.stopLoss 
+            : currentPrice < scenario.stopLoss;
+          // Check if target is still achievable
+          const targetValid = targetDistance < range * 2;
+          
+          if (!stopValid) {
+            validityNotes.push(`⚠️ Scenario ${scenario.type}: Stop level breached`);
+          } else if (!entryValid) {
+            validityNotes.push(`📍 Scenario ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away`);
+          } else if (targetValid && entryValid && stopValid) {
+            validityNotes.push(`✅ Scenario ${scenario.type}: Still valid`);
+          }
+          
+          return scenario;
+        });
+        
+        // Update card with reassessment timestamp
+        updateBattleCard(card.id, {
+          lastTechnicalReassess: new Date(),
+          reassessmentNotes: validityNotes.join('\n')
+        });
+        
+        setReassessmentResult(validityNotes.length > 0 
+          ? validityNotes.join(' | ') 
+          : '✅ All scenarios validated');
+      }
+    } catch (error) {
+      console.error('Technical reassessment error:', error);
+      setReassessmentResult('❌ Reassessment failed');
+    } finally {
+      setIsReassessing(false);
+    }
+  }, [card.id, card.scenarios, card.timeframe, currentPrice, symbol, updateBattleCard]);
+
+  // AI Reassessment - Deep analysis with AI
+  const runAIReassessment = useCallback(async () => {
+    if (!currentPrice || aiCooldown > 0) return;
+    
+    const apiKey = localStorage.getItem('anthropic_api_key');
+    if (!apiKey) {
+      setReassessmentResult('⚠️ API key required for AI analysis');
+      return;
+    }
+    
+    setIsAIReassessing(true);
+    setReassessmentResult(null);
+    
+    try {
+      // Fetch market data
+      const response = await fetch(`/api/market?symbol=${symbol}&interval=${card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase()}`);
+      const marketData = await response.json();
+      
+      // Prepare scenario summary
+      const scenarioSummary = card.scenarios.map(s => 
+        `${s.type}: ${s.name} - Entry: $${s.entryPrice?.toFixed(6) || 'N/A'}, ` +
+        `TP: $${s.target1?.toFixed(6) || 'N/A'}, SL: $${s.stopLoss?.toFixed(6) || 'N/A'}, Prob: ${s.probability}%`
+      ).join('\n');
+      
+      // Call AI for reassessment
+      const aiResponse = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          prompt: `You are a professional trading analyst. Reassess this Battle Card setup:
+
+**Asset:** ${card.instrument} (${card.timeframe})
+**Current Price:** $${currentPrice}
+**Original Thesis:** ${card.thesis}
+
+**Current Scenarios:**
+${scenarioSummary}
+
+**Recent Price Action:**
+- 24h High: $${marketData.high24h || 'N/A'}
+- 24h Low: $${marketData.low24h || 'N/A'}
+- 24h Change: ${marketData.changePercent24h?.toFixed(2) || 'N/A'}%
+
+Please provide a brief reassessment (max 150 words):
+1. Are the entry levels still valid?
+2. Should stop losses be adjusted?
+3. Are probability weights still appropriate?
+4. Any new market factors to consider?
+5. Overall recommendation: MAINTAIN / ADJUST / INVALIDATE
+
+Format: Start with the recommendation in caps, then brief explanation.`,
+          maxTokens: 300
+        })
+      });
+      
+      const aiData = await aiResponse.json();
+      const analysis = aiData.response || aiData.content?.[0]?.text || 'No response';
+      
+      // Update card with AI reassessment
+      updateBattleCard(card.id, {
+        lastAIReassess: new Date(),
+        reassessmentNotes: analysis
+      });
+      
+      setReassessmentResult(analysis);
+    } catch (error) {
+      console.error('AI reassessment error:', error);
+      setReassessmentResult('❌ AI reassessment failed');
+    } finally {
+      setIsAIReassessing(false);
+    }
+  }, [card, currentPrice, symbol, aiCooldown, updateBattleCard]);
+
+  // Format cooldown time
+  const formatCooldown = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   const getStatusColor = () => {
     if (position) return 'border-accent shadow-accent/20 shadow-lg'; // Has position
@@ -188,6 +412,81 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             </button>
           </div>
         </div>
+
+        {/* RE-ASSESSMENT PANEL - Only show when no position */}
+        {!position && expanded && (
+          <div className="mt-4 p-3 rounded-xl border border-border/50 bg-background-secondary/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-accent" />
+                <span className="text-sm font-medium text-foreground">Setup Validation</span>
+                {card.lastTechnicalReassess && (
+                  <span className="text-xs text-foreground-muted">
+                    Last check: {timeAgo(new Date(card.lastTechnicalReassess))}
+                  </span>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Technical Reassess Button */}
+                <button
+                  onClick={runTechnicalReassessment}
+                  disabled={isReassessing || technicalCooldown > 0}
+                  className={cn(
+                    'btn btn-xs flex items-center gap-1.5',
+                    technicalCooldown > 0 
+                      ? 'btn-secondary opacity-60' 
+                      : 'bg-accent/20 text-accent hover:bg-accent/30'
+                  )}
+                  title={technicalCooldown > 0 ? `Available in ${formatCooldown(technicalCooldown)}` : 'Re-check technical levels'}
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', isReassessing && 'animate-spin')} />
+                  {isReassessing ? 'Checking...' : technicalCooldown > 0 ? formatCooldown(technicalCooldown) : 'Technical'}
+                </button>
+                
+                {/* AI Reassess Button */}
+                <button
+                  onClick={runAIReassessment}
+                  disabled={isAIReassessing || aiCooldown > 0}
+                  className={cn(
+                    'btn btn-xs flex items-center gap-1.5',
+                    aiCooldown > 0 
+                      ? 'btn-secondary opacity-60' 
+                      : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                  )}
+                  title={aiCooldown > 0 ? `Available in ${formatCooldown(aiCooldown)}` : 'AI-powered deep analysis (15min cooldown)'}
+                >
+                  <Brain className={cn('w-3.5 h-3.5', isAIReassessing && 'animate-pulse')} />
+                  {isAIReassessing ? 'Analyzing...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'AI Analysis'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Reassessment Result */}
+            {reassessmentResult && (
+              <div className={cn(
+                'mt-2 p-2 rounded-lg text-xs',
+                reassessmentResult.includes('❌') || reassessmentResult.includes('INVALIDATE')
+                  ? 'bg-danger/10 border border-danger/30 text-danger'
+                  : reassessmentResult.includes('⚠️') || reassessmentResult.includes('ADJUST')
+                    ? 'bg-warning/10 border border-warning/30 text-warning'
+                    : 'bg-success/10 border border-success/30 text-success'
+              )}>
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <p className="leading-relaxed whitespace-pre-wrap">{reassessmentResult}</p>
+                </div>
+              </div>
+            )}
+            
+            {/* Show stored notes if available and no fresh result */}
+            {!reassessmentResult && card.reassessmentNotes && (
+              <div className="mt-2 p-2 rounded-lg bg-background-tertiary/50 text-xs text-foreground-secondary">
+                <p className="leading-relaxed whitespace-pre-wrap">{card.reassessmentNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* POSITION STATUS BANNER */}
         {position && livePnl && (
