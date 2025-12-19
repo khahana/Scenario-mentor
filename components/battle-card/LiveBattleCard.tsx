@@ -143,79 +143,92 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
     setReassessmentResult(null);
     
     try {
-      // Fetch fresh market data
-      const response = await fetch(`/api/market?symbol=${symbol}&interval=${card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase()}`);
-      const data = await response.json();
+      // Fetch fresh kline data - MUST include type=klines
+      const interval = card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase();
+      const response = await fetch(`/api/market?symbol=${symbol}&type=klines&interval=${interval}&limit=50`);
+      const candles = await response.json();
       
-      if (data.candles && data.candles.length > 0) {
-        const candles = data.candles;
-        const prices24h = candles.slice(-24);
-        
-        // Calculate key technical levels
-        const high24h = Math.max(...prices24h.map((c: any) => c.high));
-        const low24h = Math.min(...prices24h.map((c: any) => c.low));
-        const range = high24h - low24h;
-        
-        // Find recent swing points
-        const recentHighs = candles.slice(-50).map((c: any) => c.high);
-        const recentLows = candles.slice(-50).map((c: any) => c.low);
-        const resistance = Math.max(...recentHighs.slice(-20));
-        const support = Math.min(...recentLows.slice(-20));
-        
-        // Assess each scenario's validity
-        let validityNotes: string[] = [];
-        let updatedScenarios = card.scenarios.map(scenario => {
-          if (!scenario.entryPrice || !scenario.stopLoss || !scenario.target1) return scenario;
-          
-          const entryDistance = Math.abs(currentPrice - scenario.entryPrice) / currentPrice * 100;
-          const stopDistance = Math.abs(currentPrice - scenario.stopLoss) / currentPrice * 100;
-          const targetDistance = Math.abs(scenario.target1 - currentPrice) / currentPrice * 100;
-          
-          // Check if entry is still reasonable (within 5% of current)
-          const entryValid = entryDistance < 5;
-          // Check if stop hasn't been hit
-          const stopValid = scenario.entryPrice > scenario.stopLoss 
-            ? currentPrice > scenario.stopLoss 
-            : currentPrice < scenario.stopLoss;
-          // Check if target is still achievable
-          const targetValid = targetDistance < range * 2;
-          
-          if (!stopValid) {
-            validityNotes.push(`⚠️ Scenario ${scenario.type}: Stop level breached`);
-          } else if (!entryValid) {
-            validityNotes.push(`📍 Scenario ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away`);
-          } else if (targetValid && entryValid && stopValid) {
-            validityNotes.push(`✅ Scenario ${scenario.type}: Still valid`);
-          }
-          
-          return scenario;
-        });
-        
-        // Update card with reassessment timestamp
-        updateBattleCard(card.id, {
-          lastTechnicalReassess: new Date(),
-          reassessmentNotes: validityNotes.join('\n')
-        });
-        
-        setReassessmentResult(validityNotes.length > 0 
-          ? validityNotes.join(' | ') 
-          : '✅ All scenarios validated');
+      // Check if we got valid candle data (array of objects)
+      if (!Array.isArray(candles) || candles.length === 0) {
+        throw new Error('No candle data received');
       }
+      
+      // Calculate key technical levels from candles
+      const highs = candles.map((c: any) => c.high);
+      const lows = candles.map((c: any) => c.low);
+      const closes = candles.map((c: any) => c.close);
+      
+      const high24h = Math.max(...highs.slice(-24));
+      const low24h = Math.min(...lows.slice(-24));
+      const range = high24h - low24h;
+      
+      // Find recent swing points
+      const resistance = Math.max(...highs.slice(-20));
+      const support = Math.min(...lows.slice(-20));
+      
+      // Calculate SMA for trend
+      const sma20 = closes.slice(-20).reduce((a: number, b: number) => a + b, 0) / 20;
+      const trend = currentPrice > sma20 ? 'bullish' : 'bearish';
+      
+      // Assess each scenario's validity
+      const validityNotes: string[] = [];
+      
+      card.scenarios.forEach(scenario => {
+        if (!scenario.entryPrice || !scenario.stopLoss || !scenario.target1) {
+          validityNotes.push(`ℹ️ ${scenario.type}: No levels defined`);
+          return;
+        }
+        
+        const entryDistance = Math.abs(currentPrice - scenario.entryPrice) / currentPrice * 100;
+        
+        // Check if stop hasn't been hit (long: price > stop, short: price < stop)
+        const isLong = scenario.entryPrice > scenario.stopLoss;
+        const stopValid = isLong 
+          ? currentPrice > scenario.stopLoss 
+          : currentPrice < scenario.stopLoss;
+        
+        // Check if entry is still reasonable (within 5% of current)
+        const entryValid = entryDistance < 5;
+        
+        // Check if target is still achievable
+        const targetDistance = Math.abs(scenario.target1 - currentPrice) / currentPrice * 100;
+        
+        if (!stopValid) {
+          validityNotes.push(`❌ ${scenario.type}: Stop $${formatPrice(scenario.stopLoss)} BREACHED`);
+        } else if (entryDistance > 10) {
+          validityNotes.push(`⚠️ ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away - consider adjusting`);
+        } else if (!entryValid) {
+          validityNotes.push(`📍 ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away`);
+        } else {
+          validityNotes.push(`✅ ${scenario.type}: Valid (entry ${entryDistance.toFixed(1)}% away)`);
+        }
+      });
+      
+      // Add market context
+      validityNotes.unshift(`📊 Market: ${trend.toUpperCase()} | Range: $${formatPrice(low24h)} - $${formatPrice(high24h)}`);
+      
+      // Update card with reassessment timestamp
+      updateBattleCard(card.id, {
+        lastTechnicalReassess: new Date(),
+        reassessmentNotes: validityNotes.join('\n')
+      });
+      
+      setReassessmentResult(validityNotes.join(' | '));
     } catch (error) {
       console.error('Technical reassessment error:', error);
-      setReassessmentResult('❌ Reassessment failed');
+      setReassessmentResult('❌ Failed to fetch market data');
     } finally {
       setIsReassessing(false);
     }
   }, [card.id, card.scenarios, card.timeframe, currentPrice, symbol, updateBattleCard]);
 
-  // AI Reassessment - Deep analysis with AI
+  // AI Reassessment - Deep analysis with AI (calls Anthropic directly)
   const runAIReassessment = useCallback(async () => {
     if (!currentPrice || aiCooldown > 0) return;
     
     const apiKey = localStorage.getItem('anthropic_api_key');
     if (!apiKey) {
-      setReassessmentResult('⚠️ API key required for AI analysis');
+      setReassessmentResult('⚠️ Add API key in Settings for AI analysis');
       return;
     }
     
@@ -223,52 +236,55 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
     setReassessmentResult(null);
     
     try {
-      // Fetch market data
-      const response = await fetch(`/api/market?symbol=${symbol}&interval=${card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase()}`);
-      const marketData = await response.json();
+      // Fetch fresh market data for context
+      const interval = card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase();
+      const [tickerRes, klinesRes] = await Promise.all([
+        fetch(`/api/market?symbol=${symbol}&type=ticker`),
+        fetch(`/api/market?symbol=${symbol}&type=klines&interval=${interval}&limit=20`)
+      ]);
+      
+      const tickerData = await tickerRes.json();
+      const klines = await klinesRes.json();
+      
+      // Calculate recent price action summary
+      let priceContext = '';
+      if (Array.isArray(klines) && klines.length > 0) {
+        const highs = klines.map((c: any) => c.high);
+        const lows = klines.map((c: any) => c.low);
+        priceContext = `Recent ${klines.length} candles: High $${formatPrice(Math.max(...highs))}, Low $${formatPrice(Math.min(...lows))}`;
+      }
       
       // Prepare scenario summary
       const scenarioSummary = card.scenarios.map(s => 
-        `${s.type}: ${s.name} - Entry: $${s.entryPrice?.toFixed(6) || 'N/A'}, ` +
-        `TP: $${s.target1?.toFixed(6) || 'N/A'}, SL: $${s.stopLoss?.toFixed(6) || 'N/A'}, Prob: ${s.probability}%`
+        `${s.type} (${s.name}): Entry $${s.entryPrice ? formatPrice(s.entryPrice) : 'N/A'}, ` +
+        `TP $${s.target1 ? formatPrice(s.target1) : 'N/A'}, SL $${s.stopLoss ? formatPrice(s.stopLoss) : 'N/A'}, Prob ${s.probability}%`
       ).join('\n');
       
-      // Call AI for reassessment
-      const aiResponse = await fetch('/api/ai', {
+      // Call server API route (avoids CORS)
+      const response = await fetch('/api/ai/reassess', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey
         },
         body: JSON.stringify({
-          prompt: `You are a professional trading analyst. Reassess this Battle Card setup:
-
-**Asset:** ${card.instrument} (${card.timeframe})
-**Current Price:** $${currentPrice}
-**Original Thesis:** ${card.thesis}
-
-**Current Scenarios:**
-${scenarioSummary}
-
-**Recent Price Action:**
-- 24h High: $${marketData.high24h || 'N/A'}
-- 24h Low: $${marketData.low24h || 'N/A'}
-- 24h Change: ${marketData.changePercent24h?.toFixed(2) || 'N/A'}%
-
-Please provide a brief reassessment (max 150 words):
-1. Are the entry levels still valid?
-2. Should stop losses be adjusted?
-3. Are probability weights still appropriate?
-4. Any new market factors to consider?
-5. Overall recommendation: MAINTAIN / ADJUST / INVALIDATE
-
-Format: Start with the recommendation in caps, then brief explanation.`,
-          maxTokens: 300
+          apiKey,
+          instrument: card.instrument,
+          timeframe: card.timeframe,
+          currentPrice: formatPrice(currentPrice),
+          change24h: tickerData.changePercent24h?.toFixed(2),
+          priceContext,
+          thesis: card.thesis,
+          scenarios: scenarioSummary
         })
       });
       
-      const aiData = await aiResponse.json();
-      const analysis = aiData.response || aiData.content?.[0]?.text || 'No response';
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'API request failed');
+      }
+      
+      const analysis = data.analysis || 'No response from AI';
       
       // Update card with AI reassessment
       updateBattleCard(card.id, {
@@ -279,7 +295,8 @@ Format: Start with the recommendation in caps, then brief explanation.`,
       setReassessmentResult(analysis);
     } catch (error) {
       console.error('AI reassessment error:', error);
-      setReassessmentResult('❌ AI reassessment failed');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setReassessmentResult(`❌ AI analysis failed: ${errorMsg}`);
     } finally {
       setIsAIReassessing(false);
     }

@@ -12,6 +12,7 @@ interface TradingChartProps {
   interval?: string;
   scenarios?: Scenario[];
   height?: number;
+  showEMAs?: boolean; // New prop to control EMA display
 }
 
 // Convert interval to Binance format
@@ -32,10 +33,50 @@ function toBinanceInterval(interval: string): string {
   return map[interval] || '1h';
 }
 
-export function TradingChart({ symbol, interval = '1h', scenarios = [], height = 400 }: TradingChartProps) {
+// Calculate EMA
+function calculateEMA(data: number[], period: number): number[] {
+  const ema: number[] = [];
+  const multiplier = 2 / (period + 1);
+  
+  // Start with SMA for first value
+  let sum = 0;
+  for (let i = 0; i < Math.min(period, data.length); i++) {
+    sum += data[i];
+  }
+  ema.push(sum / Math.min(period, data.length));
+  
+  // Calculate EMA for rest
+  for (let i = 1; i < data.length; i++) {
+    if (i < period) {
+      // Use SMA until we have enough data
+      let smaSum = 0;
+      for (let j = 0; j <= i; j++) {
+        smaSum += data[j];
+      }
+      ema.push(smaSum / (i + 1));
+    } else {
+      ema.push((data[i] - ema[i - 1]) * multiplier + ema[i - 1]);
+    }
+  }
+  
+  return ema;
+}
+
+// Get decimal precision based on price magnitude
+function getPriceDecimals(price: number): number {
+  if (price >= 10000) return 2;      // BTC: 2 decimals
+  if (price >= 100) return 3;        // ETH, SOL: 3 decimals
+  if (price >= 1) return 4;          // Most alts: 4 decimals
+  if (price >= 0.01) return 5;       // Small alts: 5 decimals
+  return 6;                          // Micro alts: 6 decimals
+}
+
+export function TradingChart({ symbol, interval = '1h', scenarios = [], height = 400, showEMAs = false }: TradingChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const ema50SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema70SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const priceLineRefs = useRef<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,16 +90,17 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
       setError(null);
       
       const binanceInterval = toBinanceInterval(interval);
-      // Use Futures API for perpetual contracts
+      // Use Futures API for perpetual contracts - fetch more for EMA calculation
+      const limit = showEMAs ? 150 : 100;
       const response = await fetch(
-        `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${binanceInterval}&limit=100`
+        `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${limit}`
       );
       
       if (!response.ok) {
         // Fallback to Spot API if Futures fails
         console.log('Futures API failed, trying Spot...');
         const spotResponse = await fetch(
-          `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=100`
+          `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${binanceInterval}&limit=${limit}`
         );
         if (!spotResponse.ok) {
           throw new Error('Failed to fetch chart data');
@@ -91,7 +133,7 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
     } finally {
       setLoading(false);
     }
-  }, [symbol, interval]);
+  }, [symbol, interval, showEMAs]);
 
   // Initialize chart
   useEffect(() => {
@@ -133,6 +175,12 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
           bottom: 0.1,
         },
       },
+      localization: {
+        priceFormatter: (price: number) => {
+          const decimals = getPriceDecimals(price);
+          return price.toFixed(decimals);
+        },
+      },
       handleScale: {
         axisPressedMouseMove: true,
       },
@@ -156,6 +204,27 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
 
+    // Add EMA lines if enabled
+    if (showEMAs) {
+      const ema50Series = chart.addLineSeries({
+        color: '#10b981', // Green for EMA 50
+        lineWidth: 2,
+        title: 'EMA 50',
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      ema50SeriesRef.current = ema50Series;
+
+      const ema70Series = chart.addLineSeries({
+        color: '#ef4444', // Red for EMA 70
+        lineWidth: 2,
+        title: 'EMA 70',
+        priceLineVisible: false,
+        lastValueVisible: false,
+      });
+      ema70SeriesRef.current = ema70Series;
+    }
+
     // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
@@ -172,20 +241,44 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, []);
+  }, [showEMAs]);
 
   // Fetch and set data
   useEffect(() => {
     const loadData = async () => {
       const klines = await fetchKlines();
       if (candleSeriesRef.current && klines.length > 0) {
+        // Set candle data
         candleSeriesRef.current.setData(klines);
+        
+        // Calculate and set EMAs if enabled
+        if (showEMAs && ema50SeriesRef.current && ema70SeriesRef.current) {
+          const closes = klines.map((k: any) => k.close);
+          const times = klines.map((k: any) => k.time);
+          
+          const ema50Values = calculateEMA(closes, 50);
+          const ema70Values = calculateEMA(closes, 70);
+          
+          const ema50Data = times.map((time: number, i: number) => ({
+            time,
+            value: ema50Values[i],
+          }));
+          
+          const ema70Data = times.map((time: number, i: number) => ({
+            time,
+            value: ema70Values[i],
+          }));
+          
+          ema50SeriesRef.current.setData(ema50Data);
+          ema70SeriesRef.current.setData(ema70Data);
+        }
+        
         chartRef.current?.timeScale().fitContent();
       }
     };
 
     loadData();
-  }, [symbol, interval, fetchKlines]);
+  }, [symbol, interval, fetchKlines, showEMAs]);
 
   // Update with current price
   useEffect(() => {
@@ -288,6 +381,19 @@ export function TradingChart({ symbol, interval = '1h', scenarios = [], height =
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
           <div className="text-danger">{error}</div>
+        </div>
+      )}
+      {/* EMA Legend */}
+      {showEMAs && !loading && (
+        <div className="absolute top-2 left-2 z-10 flex gap-3 text-xs">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-0.5 bg-[#10b981]"></div>
+            <span className="text-[#10b981]">EMA 50</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-0.5 bg-[#ef4444]"></div>
+            <span className="text-[#ef4444]">EMA 70</span>
+          </div>
         </div>
       )}
       <div 
