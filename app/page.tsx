@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { Dashboard } from '@/components/dashboard/Dashboard';
@@ -7,13 +8,14 @@ import { SmartBattleCardCreator } from '@/components/battle-card/SmartBattleCard
 import { Journal } from '@/components/dashboard/Journal';
 import { AIChat } from '@/components/ai-mentor/AIChat';
 import { MarketScanner } from '@/components/scanner/MarketScanner';
+import { WelcomeTour } from '@/components/onboarding/WelcomeTour';
 import { useUIStore } from '@/lib/stores';
 import { useBinanceWebSocket } from '@/lib/hooks/useBinanceWebSocket';
 import { useMarketDataStore } from '@/lib/stores';
 import { usePriceMonitor } from '@/lib/hooks/usePriceMonitor';
 
 export default function Home() {
-  const { activeView, showAIChat, toggleAIChat } = useUIStore();
+  const { activeView, showAIChat, toggleAIChat, showTour, setShowTour, completeTour } = useUIStore();
   const watchlist = useMarketDataStore(state => state.watchlist);
   
   // Connect to Binance Futures WebSocket for real-time prices
@@ -21,6 +23,18 @@ export default function Home() {
   
   // Enable price monitoring for alerts and auto-trading
   usePriceMonitor();
+  
+  // Check if first-time user and show tour
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('scenario_tour_completed');
+    if (!hasSeenTour) {
+      // Small delay to let the UI render first
+      const timer = setTimeout(() => {
+        setShowTour(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [setShowTour]);
 
   const renderContent = () => {
     switch (activeView) {
@@ -61,6 +75,13 @@ export default function Home() {
           <AIChat onClose={toggleAIChat} />
         </div>
       )}
+      
+      {/* Welcome Tour */}
+      <WelcomeTour 
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        onComplete={completeTour}
+      />
     </div>
   );
 }

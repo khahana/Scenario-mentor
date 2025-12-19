@@ -16,7 +16,11 @@ import {
   Trash2,
   Brain,
   Settings,
-  Search
+  Search,
+  HelpCircle,
+  Sparkles,
+  BookOpen,
+  MessageSquare
 } from 'lucide-react';
 import { useBattleCardStore, useMarketDataStore, useUIStore } from '@/lib/stores';
 import { usePaperTradingStore } from '@/lib/stores/paperTradingStore';
@@ -28,7 +32,7 @@ import { LiveBattleCard } from '@/components/battle-card/LiveBattleCard';
 export function Dashboard() {
   const battleCards = useBattleCardStore(state => state.battleCards);
   const prices = useMarketDataStore(state => state.prices);
-  const setActiveView = useUIStore(state => state.setActiveView);
+  const { setActiveView, setShowTour } = useUIStore();
   const setCurrentCard = useBattleCardStore(state => state.setCurrentCard);
   const createBattleCard = useBattleCardStore(state => state.createBattleCard);
   
@@ -37,6 +41,9 @@ export function Dashboard() {
 
   const activeCards = battleCards.filter(c => c.status === 'active' || c.status === 'monitoring');
   const draftCards = battleCards.filter(c => c.status === 'draft');
+  
+  // Show quick start guide for new users (no trades and no active cards)
+  const showQuickStart = totalTrades === 0 && activeCards.length === 0;
 
   const handleCardClick = (card: any) => {
     setCurrentCard(card);
@@ -160,6 +167,82 @@ export function Dashboard() {
           </div>
         </div>
 
+        {/* Quick Start Guide - Show for new users */}
+        {showQuickStart && (
+          <div className="card p-6 bg-gradient-to-br from-accent/5 to-purple-500/5 border-accent/20">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-6 h-6 text-accent" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">Welcome to Scenario Trading! 🎯</h3>
+                <p className="text-sm text-foreground-secondary mb-4">
+                  Think in probabilities, not predictions. Here's how to get started:
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <button 
+                    onClick={() => setActiveView('scanner')}
+                    className="p-4 rounded-xl bg-background-secondary/50 hover:bg-background-secondary border border-border hover:border-accent/30 transition-all text-left group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Search className="w-5 h-5 text-warning" />
+                      <span className="font-semibold text-foreground">1. Scan Market</span>
+                    </div>
+                    <p className="text-xs text-foreground-muted">
+                      Find high-potential setups with technical analysis, funding rates & OI
+                    </p>
+                  </button>
+                  
+                  <button 
+                    onClick={handleNewCard}
+                    className="p-4 rounded-xl bg-background-secondary/50 hover:bg-background-secondary border border-border hover:border-accent/30 transition-all text-left group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="w-5 h-5 text-success" />
+                      <span className="font-semibold text-foreground">2. Create Battle Card</span>
+                    </div>
+                    <p className="text-xs text-foreground-muted">
+                      AI generates 4 scenarios with entry, stop & targets
+                    </p>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveView('journal')}
+                    className="p-4 rounded-xl bg-background-secondary/50 hover:bg-background-secondary border border-border hover:border-accent/30 transition-all text-left group"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <BookOpen className="w-5 h-5 text-info" />
+                      <span className="font-semibold text-foreground">3. Paper Trade</span>
+                    </div>
+                    <p className="text-xs text-foreground-muted">
+                      Practice your scenarios risk-free and track performance
+                    </p>
+                  </button>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setShowTour(true)}
+                    className="text-sm text-accent hover:text-accent/80 flex items-center gap-1"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    Take the full tour
+                  </button>
+                  <span className="text-foreground-muted">|</span>
+                  <button 
+                    onClick={() => setActiveView('chat')}
+                    className="text-sm text-foreground-muted hover:text-foreground flex items-center gap-1"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Ask AI Mentor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Active Battle Cards - Full Width */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -176,10 +259,38 @@ export function Dashboard() {
               <p className="text-foreground-secondary mb-4">
                 Create your first Battle Card to start tracking scenarios
               </p>
-              <button onClick={handleNewCard} className="btn btn-primary">
-                <Plus className="w-4 h-4" />
-                Create Battle Card
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button onClick={handleNewCard} className="btn btn-primary">
+                  <Plus className="w-4 h-4" />
+                  Create Battle Card
+                </button>
+                <button 
+                  onClick={() => setActiveView('scanner')}
+                  className="btn btn-secondary"
+                >
+                  <Search className="w-4 h-4" />
+                  Find Setups in Scanner
+                </button>
+              </div>
+              
+              {/* Scenario Quick Reference */}
+              <div className="mt-6 pt-6 border-t border-border">
+                <p className="text-xs text-foreground-muted mb-3">The 4 Scenarios Framework:</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-success/10 text-success">
+                    A: Primary (40-50%)
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-info/10 text-info">
+                    B: Secondary (25-35%)
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-warning/10 text-warning">
+                    C: Chaos (10-20%)
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-danger/10 text-danger">
+                    D: Invalidation (5-15%)
+                  </span>
+                </div>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

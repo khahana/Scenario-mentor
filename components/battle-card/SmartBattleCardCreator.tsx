@@ -14,7 +14,8 @@ import {
   ChevronUp,
   MessageSquare,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  BarChart2
 } from 'lucide-react';
 import { useBattleCardStore, useUIStore, useMarketDataStore, BINANCE_FUTURES_ASSETS } from '@/lib/stores';
 import { cn, getScenarioColor, generateId, formatPrice } from '@/lib/utils/helpers';
@@ -87,11 +88,19 @@ export function SmartBattleCardCreator() {
   const [direction, setDirection] = useState<'long' | 'short' | 'auto'>('auto');
   const [analysis, setAnalysis] = useState<ExtractedAnalysis | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState<'ai' | 'fallback' | null>(null);
   
   const { saveBattleCard } = useBattleCardStore();
   const { setActiveView, prefillSymbol, setPrefillSymbol } = useUIStore();
   const prices = useMarketDataStore(state => state.prices);
   const watchlist = useMarketDataStore(state => state.watchlist);
+  
+  // Check if API key exists
+  const [hasApiKey, setHasApiKey] = useState(false);
+  useEffect(() => {
+    const key = localStorage.getItem('anthropic_api_key');
+    setHasApiKey(!!key && key.length > 10);
+  }, []);
   
   // Use watchlist if available, otherwise default instruments
   const instruments = watchlist.length > 0 ? watchlist : DEFAULT_INSTRUMENTS;
@@ -180,6 +189,8 @@ export function SmartBattleCardCreator() {
       
       if (data.success) {
         setAnalysis(data.analysis);
+        // Track if this was AI or fallback analysis
+        setAnalysisMode(data.model === 'fallback-technical' ? 'fallback' : 'ai');
         setState('complete');
       } else {
         console.error('Analysis error:', data.error);
@@ -374,22 +385,43 @@ export function SmartBattleCardCreator() {
             </div>
           </div>
 
+          {/* API Key Warning */}
+          {!hasApiKey && (
+            <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-warning font-medium">No API Key</p>
+                <p className="text-xs text-foreground-muted">
+                  Using basic technical analysis. Add your Anthropic API key in Settings for AI-powered analysis.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Analyze Button */}
           {state !== 'complete' && (
             <button
               onClick={analyzeChart}
               disabled={state === 'analyzing'}
-              className="w-full btn btn-primary py-4 text-lg"
+              className={cn(
+                "w-full btn py-4 text-lg",
+                hasApiKey ? "btn-primary" : "btn-secondary"
+              )}
             >
               {state === 'analyzing' ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
                   Analyzing {instrument}...
                 </>
-              ) : (
+              ) : hasApiKey ? (
                 <>
                   <Brain className="w-5 h-5" />
-                  Analyze Chart with AI
+                  Analyze with AI
+                </>
+              ) : (
+                <>
+                  <BarChart2 className="w-5 h-5" />
+                  Analyze with Technical Indicators
                 </>
               )}
             </button>
@@ -409,12 +441,24 @@ export function SmartBattleCardCreator() {
         <div className="space-y-4">
           {state === 'idle' && (
             <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
-              <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-accent" />
+              <div className={cn(
+                "w-16 h-16 rounded-2xl flex items-center justify-center mb-4",
+                hasApiKey ? "bg-accent/10" : "bg-warning/10"
+              )}>
+                {hasApiKey ? (
+                  <Sparkles className="w-8 h-8 text-accent" />
+                ) : (
+                  <BarChart2 className="w-8 h-8 text-warning" />
+                )}
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Ready to Analyze</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {hasApiKey ? 'Ready for AI Analysis' : 'Ready for Technical Analysis'}
+              </h3>
               <p className="text-foreground-secondary max-w-sm">
-                Select instrument & timeframe, then click <strong>"Analyze Chart"</strong>. AI extracts everything.
+                {hasApiKey 
+                  ? 'Select instrument & timeframe, then click "Analyze with AI". Claude extracts complete battle card setup.'
+                  : 'Select instrument & timeframe for basic technical analysis. Add API key in Settings for AI-powered analysis.'
+                }
               </p>
             </div>
           )}
@@ -422,13 +466,30 @@ export function SmartBattleCardCreator() {
           {state === 'analyzing' && (
             <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
               <Loader2 className="w-12 h-12 text-accent animate-spin mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Analyzing Chart...</h3>
-              <p className="text-foreground-secondary">Extracting SPIN, thesis & scenarios</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {hasApiKey ? 'AI Analyzing Chart...' : 'Running Technical Analysis...'}
+              </h3>
+              <p className="text-foreground-secondary">
+                {hasApiKey ? 'Extracting SPIN, thesis & scenarios' : 'Calculating support, resistance & trends'}
+              </p>
             </div>
           )}
 
           {state === 'complete' && analysis && (
             <div className="space-y-4">
+              {/* Fallback Mode Banner */}
+              {analysisMode === 'fallback' && (
+                <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-warning font-medium">Basic Technical Analysis</p>
+                    <p className="text-xs text-foreground-muted">
+                      This analysis uses calculated indicators only. Add your Anthropic API key in Settings for AI-powered scenario generation.
+                    </p>
+                  </div>
+                </div>
+              )}
+              
               {/* Quick Stats */}
               <div className="card p-4">
                 <div className="flex items-center justify-between">

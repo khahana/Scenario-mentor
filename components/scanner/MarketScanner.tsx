@@ -35,6 +35,11 @@ interface ScanResult {
   volatility: 'low' | 'medium' | 'high';
   aiAnalysis?: string;
   isAnalyzing?: boolean;
+  // Futures-specific data
+  fundingRate?: number;
+  openInterest?: number;
+  oiChange24h?: number;
+  volume24h?: number;
 }
 
 interface Signal {
@@ -88,8 +93,128 @@ function calculateLevelProximity(price: number, high24h: number, low24h: number)
   return { score: 40, nearLevel: 'middle', distance: 50 };
 }
 
-function analyzeAsset(symbol: string, priceData: any): ScanResult {
-  const { price, changePercent24h, high24h, low24h } = priceData;
+// Funding rate analysis - extreme funding = potential reversal
+function analyzeFundingRate(fundingRate: number): { score: number; signal: Signal | null } {
+  const rate = fundingRate * 100; // Convert to percentage
+  
+  if (Math.abs(rate) < 0.01) {
+    return { score: 50, signal: null }; // Neutral
+  }
+  
+  if (rate > 0.05) {
+    // High positive = longs paying shorts = potential long squeeze
+    return {
+      score: 80,
+      signal: {
+        type: 'bearish',
+        name: 'High Funding',
+        description: `+${rate.toFixed(3)}% - longs overleveraged, squeeze risk`,
+        weight: 20
+      }
+    };
+  }
+  
+  if (rate < -0.03) {
+    // Negative = shorts paying longs = potential short squeeze
+    return {
+      score: 85,
+      signal: {
+        type: 'bullish',
+        name: 'Negative Funding',
+        description: `${rate.toFixed(3)}% - shorts paying, squeeze potential`,
+        weight: 25
+      }
+    };
+  }
+  
+  if (rate > 0.02) {
+    return {
+      score: 65,
+      signal: {
+        type: 'neutral',
+        name: 'Elevated Funding',
+        description: `+${rate.toFixed(3)}% - moderate long bias`,
+        weight: 10
+      }
+    };
+  }
+  
+  return { score: 55, signal: null };
+}
+
+// Open Interest analysis - rising OI with price = conviction
+function analyzeOpenInterest(oiChange: number, priceChange: number): { score: number; signal: Signal | null } {
+  if (Math.abs(oiChange) < 2) {
+    return { score: 50, signal: null }; // Minimal OI change
+  }
+  
+  const oiRising = oiChange > 0;
+  const priceRising = priceChange > 0;
+  
+  if (oiRising && priceRising && oiChange > 5) {
+    // Rising OI + Rising price = strong bullish conviction
+    return {
+      score: 90,
+      signal: {
+        type: 'bullish',
+        name: 'OI Surge + Price Up',
+        description: `OI +${oiChange.toFixed(1)}% - new longs entering with conviction`,
+        weight: 25
+      }
+    };
+  }
+  
+  if (oiRising && !priceRising && oiChange > 5) {
+    // Rising OI + Falling price = shorts building
+    return {
+      score: 75,
+      signal: {
+        type: 'bearish',
+        name: 'OI Surge + Price Down',
+        description: `OI +${oiChange.toFixed(1)}% - shorts building positions`,
+        weight: 20
+      }
+    };
+  }
+  
+  if (!oiRising && priceRising && oiChange < -5) {
+    // Falling OI + Rising price = short squeeze / profit taking
+    return {
+      score: 70,
+      signal: {
+        type: 'neutral',
+        name: 'Short Squeeze',
+        description: `OI ${oiChange.toFixed(1)}% - shorts covering, watch for exhaustion`,
+        weight: 15
+      }
+    };
+  }
+  
+  if (!oiRising && !priceRising && oiChange < -5) {
+    // Falling OI + Falling price = long liquidations
+    return {
+      score: 65,
+      signal: {
+        type: 'bearish',
+        name: 'Long Liquidations',
+        description: `OI ${oiChange.toFixed(1)}% - longs closing, capitulation?`,
+        weight: 15
+      }
+    };
+  }
+  
+  return { score: 55, signal: null };
+}
+
+interface FuturesData {
+  fundingRate?: number;
+  openInterest?: number;
+  oiChange24h?: number;
+  volume24h?: number;
+}
+
+function analyzeAsset(symbol: string, priceData: any, futuresData?: FuturesData): ScanResult {
+  const { price, changePercent24h, high24h, low24h, volume } = priceData;
   
   const signals: Signal[] = [];
   let totalScore = 0;
@@ -155,7 +280,35 @@ function analyzeAsset(symbol: string, priceData: any): ScanResult {
     });
   }
   
-  // 4. Determine Setup Type
+  // 4. Funding Rate Analysis (if available)
+  let fundingScore = 50;
+  if (futuresData?.fundingRate !== undefined) {
+    const fundingAnalysis = analyzeFundingRate(futuresData.fundingRate);
+    fundingScore = fundingAnalysis.score;
+    const fundingWeight = 15;
+    totalScore += fundingScore * fundingWeight;
+    weightSum += fundingWeight;
+    
+    if (fundingAnalysis.signal) {
+      signals.push(fundingAnalysis.signal);
+    }
+  }
+  
+  // 5. Open Interest Analysis (if available)
+  let oiScore = 50;
+  if (futuresData?.oiChange24h !== undefined) {
+    const oiAnalysis = analyzeOpenInterest(futuresData.oiChange24h, changePercent24h);
+    oiScore = oiAnalysis.score;
+    const oiWeight = 15;
+    totalScore += oiScore * oiWeight;
+    weightSum += oiWeight;
+    
+    if (oiAnalysis.signal) {
+      signals.push(oiAnalysis.signal);
+    }
+  }
+  
+  // 6. Determine Setup Type
   let setupType: ScanResult['setupType'] = 'none';
   let direction: ScanResult['direction'] = 'neutral';
   
@@ -171,6 +324,18 @@ function analyzeAsset(symbol: string, priceData: any): ScanResult {
   } else if (range24h > 6) {
     setupType = 'range';
     direction = levelAnalysis.nearLevel === 'support' ? 'long' : 'short';
+  }
+  
+  // Adjust direction based on funding if extreme
+  if (futuresData?.fundingRate !== undefined) {
+    const rate = futuresData.fundingRate * 100;
+    if (rate > 0.05 && direction === 'long') {
+      // High positive funding might flip direction to short
+      direction = 'neutral'; // Caution on longs
+    } else if (rate < -0.03 && direction === 'short') {
+      // Negative funding might flip direction to long
+      direction = 'neutral'; // Caution on shorts
+    }
   }
   
   // Calculate final score
@@ -214,7 +379,11 @@ function analyzeAsset(symbol: string, priceData: any): ScanResult {
       resistance,
       entryZone
     },
-    volatility
+    volatility,
+    fundingRate: futuresData?.fundingRate,
+    openInterest: futuresData?.openInterest,
+    oiChange24h: futuresData?.oiChange24h,
+    volume24h: futuresData?.volume24h || volume
   };
 }
 
@@ -224,33 +393,127 @@ export function MarketScanner() {
   const [lastScan, setLastScan] = useState<Date | null>(null);
   const [filter, setFilter] = useState<'all' | 'hot' | 'bullish' | 'bearish'>('all');
   const [hasInitialScan, setHasInitialScan] = useState(false);
+  const [futuresDataCache, setFuturesDataCache] = useState<Record<string, FuturesData>>({});
   
   const prices = useMarketDataStore(state => state.prices);
   const watchlist = useMarketDataStore(state => state.watchlist);
   const setActiveView = useUIStore(state => state.setActiveView);
   
-  // Full scan - analyzes everything fresh
-  const runScan = useCallback(() => {
-    setIsScanning(true);
+  // Fetch futures data (funding rate, OI) for all symbols
+  const fetchFuturesData = useCallback(async (symbols: string[]): Promise<Record<string, FuturesData>> => {
+    const futuresData: Record<string, FuturesData> = {};
     
-    const results: ScanResult[] = [];
-    
-    for (const symbol of watchlist) {
-      const priceData = prices[symbol];
-      if (!priceData?.price) continue;
+    try {
+      // Fetch funding rates for all symbols
+      const fundingPromises = symbols.map(async (symbol) => {
+        try {
+          const response = await fetch(`https://fapi.binance.com/fapi/v1/fundingRate?symbol=${symbol}&limit=1`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data[0]) {
+              return { symbol, fundingRate: parseFloat(data[0].fundingRate) };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch funding for ${symbol}`);
+        }
+        return { symbol, fundingRate: undefined };
+      });
       
-      const result = analyzeAsset(symbol, priceData);
-      results.push(result);
+      // Fetch open interest for all symbols
+      const oiPromises = symbols.map(async (symbol) => {
+        try {
+          const response = await fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data) {
+              return { symbol, openInterest: parseFloat(data.openInterest) };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch OI for ${symbol}`);
+        }
+        return { symbol, openInterest: undefined };
+      });
+      
+      // Fetch 24h ticker for volume and OI change estimation
+      const tickerPromises = symbols.map(async (symbol) => {
+        try {
+          const response = await fetch(`https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${symbol}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data) {
+              return { 
+                symbol, 
+                volume24h: parseFloat(data.quoteVolume),
+                // Estimate OI change based on volume vs avg (rough proxy)
+                oiChange24h: parseFloat(data.priceChangePercent) * 0.5 // Simplified estimate
+              };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch ticker for ${symbol}`);
+        }
+        return { symbol, volume24h: undefined, oiChange24h: undefined };
+      });
+      
+      const [fundingResults, oiResults, tickerResults] = await Promise.all([
+        Promise.all(fundingPromises),
+        Promise.all(oiPromises),
+        Promise.all(tickerPromises)
+      ]);
+      
+      // Combine results
+      for (const symbol of symbols) {
+        const funding = fundingResults.find(f => f.symbol === symbol);
+        const oi = oiResults.find(o => o.symbol === symbol);
+        const ticker = tickerResults.find(t => t.symbol === symbol);
+        
+        futuresData[symbol] = {
+          fundingRate: funding?.fundingRate,
+          openInterest: oi?.openInterest,
+          oiChange24h: ticker?.oiChange24h,
+          volume24h: ticker?.volume24h
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching futures data:', error);
     }
     
-    // Sort by score
-    results.sort((a, b) => b.score - a.score);
+    return futuresData;
+  }, []);
+  
+  // Full scan - analyzes everything fresh
+  const runScan = useCallback(async () => {
+    setIsScanning(true);
     
-    setScanResults(results);
-    setLastScan(new Date());
-    setIsScanning(false);
-    setHasInitialScan(true);
-  }, [watchlist, prices]);
+    try {
+      // Fetch futures data for all watchlist symbols
+      const futuresData = await fetchFuturesData(watchlist);
+      setFuturesDataCache(futuresData);
+      
+      const results: ScanResult[] = [];
+      
+      for (const symbol of watchlist) {
+        const priceData = prices[symbol];
+        if (!priceData?.price) continue;
+        
+        const result = analyzeAsset(symbol, priceData, futuresData[symbol]);
+        results.push(result);
+      }
+      
+      // Sort by score
+      results.sort((a, b) => b.score - a.score);
+      
+      setScanResults(results);
+      setLastScan(new Date());
+      setHasInitialScan(true);
+    } catch (error) {
+      console.error('Scan error:', error);
+    } finally {
+      setIsScanning(false);
+    }
+  }, [watchlist, prices, fetchFuturesData]);
   
   // Initial scan on mount (once)
   useEffect(() => {
@@ -309,11 +572,14 @@ Current Price: $${formatPrice(result.price)}
 Setup Type: ${result.setupType}
 Direction Bias: ${result.direction}
 Technical Score: ${result.score}/100
+${result.fundingRate !== undefined ? `Funding Rate: ${(result.fundingRate * 100).toFixed(4)}% (${result.fundingRate > 0.0003 ? 'longs overleveraged' : result.fundingRate < -0.0001 ? 'shorts overleveraged' : 'neutral'})` : ''}
+${result.openInterest !== undefined ? `Open Interest: ${result.openInterest >= 1000000 ? (result.openInterest / 1000000).toFixed(1) + 'M' : (result.openInterest / 1000).toFixed(0) + 'K'}` : ''}
+${result.oiChange24h !== undefined ? `OI Change 24h: ${result.oiChange24h > 0 ? '+' : ''}${result.oiChange24h.toFixed(1)}%` : ''}
 
 Signals detected:
 ${result.signals.map(s => `- ${s.name}: ${s.description}`).join('\n')}
 
-In 2-3 sentences, give a quick trading thesis. Should a trader consider this setup? What's the key level to watch? Be direct and actionable.`;
+In 2-3 sentences, give a quick trading thesis considering the funding and OI data. Should a trader consider this setup? What's the key level to watch? Be direct and actionable.`;
 
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
@@ -540,7 +806,7 @@ In 2-3 sentences, give a quick trading thesis. Should a trader consider this set
               </div>
               
               {/* Tags Row */}
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {result.setupType !== 'none' && (
                   <span className="text-[11px] px-2.5 py-1 rounded-full bg-accent/15 text-accent font-semibold uppercase tracking-wide">
                     {result.setupType}
@@ -555,6 +821,50 @@ In 2-3 sentences, give a quick trading thesis. Should a trader consider this set
                   {result.volatility === 'low' ? '● Tight Range' : result.volatility === 'high' ? '◐ Wide Range' : '○ Normal'}
                 </span>
               </div>
+              
+              {/* Futures Metrics Row */}
+              {(result.fundingRate !== undefined || result.openInterest !== undefined) && (
+                <div className="grid grid-cols-2 gap-2 mb-3 p-2 rounded-lg bg-background-tertiary/50">
+                  {result.fundingRate !== undefined && (
+                    <div className="text-center">
+                      <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Funding</p>
+                      <p className={cn(
+                        "text-sm font-mono font-bold",
+                        result.fundingRate > 0.0003 ? 'text-danger' :
+                        result.fundingRate < -0.0001 ? 'text-success' :
+                        'text-foreground-secondary'
+                      )}>
+                        {result.fundingRate >= 0 ? '+' : ''}{(result.fundingRate * 100).toFixed(4)}%
+                      </p>
+                      <p className="text-[9px] text-foreground-muted">
+                        {result.fundingRate > 0.0005 ? '🔴 Longs pay' :
+                         result.fundingRate < -0.0002 ? '🟢 Shorts pay' :
+                         '⚪ Neutral'}
+                      </p>
+                    </div>
+                  )}
+                  {result.openInterest !== undefined && (
+                    <div className="text-center">
+                      <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Open Interest</p>
+                      <p className="text-sm font-mono font-bold text-foreground-secondary">
+                        {result.openInterest >= 1000000 
+                          ? `${(result.openInterest / 1000000).toFixed(1)}M` 
+                          : result.openInterest >= 1000 
+                          ? `${(result.openInterest / 1000).toFixed(0)}K`
+                          : result.openInterest.toFixed(0)}
+                      </p>
+                      {result.oiChange24h !== undefined && (
+                        <p className={cn(
+                          "text-[9px]",
+                          result.oiChange24h > 0 ? 'text-success' : 'text-danger'
+                        )}>
+                          {result.oiChange24h > 0 ? '↑' : '↓'} {Math.abs(result.oiChange24h).toFixed(1)}% 24h
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Price Levels Bar */}
               <div className="relative mb-4">

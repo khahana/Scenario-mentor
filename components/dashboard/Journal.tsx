@@ -57,6 +57,7 @@ export function Journal() {
   const openPositions = positions.filter(p => p.status === 'open');
   
   // Calculate live PnL for a position
+  // Formula: PnL = (priceChange / entryPrice) * positionSize * leverage
   const calculateLivePnL = (pos: typeof positions[0]) => {
     const symbol = pos.instrument.replace('/', '');
     const currentPrice = prices[symbol]?.price || pos.entryPrice;
@@ -64,8 +65,9 @@ export function Journal() {
       ? currentPrice - pos.entryPrice 
       : pos.entryPrice - currentPrice;
     const leverage = pos.leverage || 1;
-    const pnl = priceDiff * pos.size * leverage;  // Apply leverage to dollar P&L
+    // Correct P&L: (price change %) * position size * leverage
     const pnlPercent = (priceDiff / pos.entryPrice) * 100 * leverage;
+    const pnl = (priceDiff / pos.entryPrice) * pos.size * leverage;
     return { currentPrice, pnl, pnlPercent };
   };
 

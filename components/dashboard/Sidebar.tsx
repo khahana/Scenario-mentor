@@ -11,7 +11,8 @@ import {
   Zap,
   Brain,
   ChevronRight,
-  Search
+  Search,
+  HelpCircle
 } from 'lucide-react';
 import { useUIStore, useBattleCardStore } from '@/lib/stores';
 import { cn } from '@/lib/utils/helpers';
@@ -26,7 +27,7 @@ const navItems = [
 ];
 
 export function Sidebar() {
-  const { activeView, setActiveView } = useUIStore();
+  const { activeView, setActiveView, setShowTour } = useUIStore();
   const battleCards = useBattleCardStore(state => state.battleCards);
   const [showSettings, setShowSettings] = useState(false);
   
@@ -80,8 +81,15 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Settings */}
-        <div className="p-4 border-t border-border">
+        {/* Settings & Help */}
+        <div className="p-4 border-t border-border space-y-1">
+          <button 
+            onClick={() => setShowTour(true)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-background-tertiary transition-all"
+          >
+            <HelpCircle className="w-5 h-5" />
+            <span className="font-medium">Help & Tutorial</span>
+          </button>
           <button 
             onClick={() => setShowSettings(true)}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-foreground-secondary hover:text-foreground hover:bg-background-tertiary transition-all"

@@ -14,7 +14,8 @@ import {
   Zap,
   Eye,
   DollarSign,
-  Activity
+  Activity,
+  LogOut
 } from 'lucide-react';
 import { useBattleCardStore, useMarketDataStore } from '@/lib/stores';
 import { usePaperTradingStore } from '@/lib/stores/paperTradingStore';
@@ -31,7 +32,7 @@ interface LiveBattleCardProps {
 export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [showChart, setShowChart] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<'win' | 'loss' | 'delete' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'exit' | 'delete' | null>(null);
   
   const { updateBattleCard, deleteBattleCard } = useBattleCardStore();
   const prices = useMarketDataStore(state => state.prices);
@@ -399,19 +400,27 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             {confirmAction ? (
               <div className="flex items-center gap-2 animate-fade-in">
                 <span className="text-sm text-foreground-muted">
-                  {confirmAction === 'win' ? 'Mark win?' : confirmAction === 'loss' ? 'Mark loss?' : 'Delete?'}
+                  {confirmAction === 'exit' ? 'Exit trade?' : 'Delete card?'}
                 </span>
                 <button
                   onClick={() => {
-                    if (confirmAction === 'win') handleCloseCard('completed');
-                    else if (confirmAction === 'loss') handleCloseCard('closed');
-                    else handleDeleteCard();
+                    if (confirmAction === 'exit') {
+                      // Close position and determine outcome based on P&L
+                      if (position && currentPrice) {
+                        closePosition(position.id, currentPrice, 'manual');
+                      }
+                      // Mark card as completed or closed based on position P&L
+                      const outcome = position && livePnl?.pnl && livePnl.pnl >= 0 ? 'completed' : 'closed';
+                      updateBattleCard(card.id, { status: outcome });
+                      setConfirmAction(null);
+                      onClose?.();
+                    } else {
+                      handleDeleteCard();
+                    }
                   }}
                   className={cn(
                     'btn btn-sm',
-                    confirmAction === 'win' ? 'bg-success text-white' :
-                    confirmAction === 'loss' ? 'bg-danger text-white' :
-                    'bg-foreground-muted text-background'
+                    confirmAction === 'exit' ? 'bg-accent text-white' : 'bg-foreground-muted text-background'
                   )}
                 >
                   <Check className="w-4 h-4" />
@@ -425,20 +434,15 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setConfirmAction('win')}
-                  className="btn btn-sm bg-success/20 text-success hover:bg-success/30"
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  Win
-                </button>
-                <button
-                  onClick={() => setConfirmAction('loss')}
-                  className="btn btn-sm bg-danger/20 text-danger hover:bg-danger/30"
-                >
-                  <TrendingDown className="w-4 h-4" />
-                  Loss
-                </button>
+                {position && (
+                  <button
+                    onClick={() => setConfirmAction('exit')}
+                    className="btn btn-sm bg-accent/20 text-accent hover:bg-accent/30"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Exit Trade
+                  </button>
+                )}
                 <button
                   onClick={() => setConfirmAction('delete')}
                   className="btn btn-sm btn-secondary"

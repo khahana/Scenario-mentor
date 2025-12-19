@@ -311,26 +311,47 @@ interface UIState {
   activeView: 'dashboard' | 'scanner' | 'battle-card' | 'journal' | 'chat' | 'settings';
   showAIChat: boolean;
   showAlerts: boolean;
+  showTour: boolean;
+  hasSeenTour: boolean;
   prefillSymbol: string | null; // For scanner -> battle card flow
   
   toggleSidebar: () => void;
   setActiveView: (view: UIState['activeView']) => void;
   toggleAIChat: () => void;
   toggleAlerts: () => void;
+  setShowTour: (show: boolean) => void;
+  completeTour: () => void;
   setPrefillSymbol: (symbol: string | null) => void;
 }
+
+// Check localStorage for tour status
+const getInitialTourState = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('scenario_tour_completed') === 'true';
+  }
+  return false;
+};
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: true,
   activeView: 'dashboard',
   showAIChat: false,
   showAlerts: false,
+  showTour: false,
+  hasSeenTour: false,
   prefillSymbol: null,
   
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setActiveView: (view) => set({ activeView: view }),
   toggleAIChat: () => set((state) => ({ showAIChat: !state.showAIChat })),
   toggleAlerts: () => set((state) => ({ showAlerts: !state.showAlerts })),
+  setShowTour: (show) => set({ showTour: show }),
+  completeTour: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('scenario_tour_completed', 'true');
+    }
+    set({ showTour: false, hasSeenTour: true });
+  },
   setPrefillSymbol: (symbol) => set({ prefillSymbol: symbol }),
 }));
 
