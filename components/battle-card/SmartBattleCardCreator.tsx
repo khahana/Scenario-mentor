@@ -392,7 +392,7 @@ export function SmartBattleCardCreator() {
               <div>
                 <p className="text-sm text-warning font-medium">No API Key</p>
                 <p className="text-xs text-foreground-muted">
-                  Using basic technical analysis. Add your Anthropic API key in Settings for AI-powered analysis.
+                  Using basic technical analysis. Add your API key in Settings for AI-powered analysis.
                 </p>
               </div>
             </div>
@@ -456,7 +456,7 @@ export function SmartBattleCardCreator() {
               </h3>
               <p className="text-foreground-secondary max-w-sm">
                 {hasApiKey 
-                  ? 'Select instrument & timeframe, then click "Analyze with AI". Claude extracts complete battle card setup.'
+                  ? 'Select instrument & timeframe, then click "Analyze with AI". AI extracts complete battle card setup.'
                   : 'Select instrument & timeframe for basic technical analysis. Add API key in Settings for AI-powered analysis.'
                 }
               </p>
@@ -484,7 +484,7 @@ export function SmartBattleCardCreator() {
                   <div>
                     <p className="text-sm text-warning font-medium">Basic Technical Analysis</p>
                     <p className="text-xs text-foreground-muted">
-                      This analysis uses calculated indicators only. Add your Anthropic API key in Settings for AI-powered scenario generation.
+                      This analysis uses calculated indicators only. Add your API key in Settings for AI-powered scenario generation.
                     </p>
                   </div>
                 </div>

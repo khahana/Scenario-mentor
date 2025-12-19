@@ -15,7 +15,8 @@ import {
   Zap,
   Brain,
   BarChart2,
-  HelpCircle
+  HelpCircle,
+  HardDrive
 } from 'lucide-react';
 import { cn } from '@/lib/utils/helpers';
 
@@ -128,14 +129,28 @@ const TOUR_STEPS: TourStep[] = [
   {
     id: 'api-key',
     title: '🔑 API Key Setup',
-    description: 'For AI-powered analysis, add your Anthropic API key in Settings. Without it, you get basic technical analysis.',
+    description: 'For AI-powered analysis, add your API key in Settings. Without it, you get basic technical analysis.',
     icon: Settings,
     color: 'text-foreground-muted',
     tips: [
-      'Get your key at console.anthropic.com',
+      'Get an API key from your AI provider',
       'Key is stored locally in your browser only',
-      'Never sent to any server except Anthropic',
+      'Never shared with any third-party servers',
       'Each user needs their own API key'
+    ]
+  },
+  {
+    id: 'data-storage',
+    title: '💾 Your Data & Privacy',
+    description: 'All your data is stored locally in your browser (localStorage). Nothing is sent to external servers.',
+    icon: HardDrive,
+    color: 'text-info',
+    tips: [
+      '✓ Battle Cards, positions, and journal are stored in your browser',
+      '✓ Clearing browser data will delete your trading history',
+      '⚠️ Before clearing browser history, export your Journal as CSV!',
+      '✓ Go to Journal → Click "Trades CSV" to backup your data',
+      '✓ Your API key is also stored locally for security'
     ]
   },
   {
@@ -147,7 +162,7 @@ const TOUR_STEPS: TourStep[] = [
     tips: [
       '1. Go to Scanner → Find a high-score setup',
       '2. Click "Create Battle Card" on interesting assets',
-      '3. Review AI-generated scenarios',
+      '3. Review the generated scenarios',
       '4. Save and monitor your Battle Card',
       '5. Paper trade when your scenario triggers!'
     ]

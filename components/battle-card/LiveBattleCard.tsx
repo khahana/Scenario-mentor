@@ -15,7 +15,8 @@ import {
   Eye,
   DollarSign,
   Activity,
-  LogOut
+  LogOut,
+  Edit3
 } from 'lucide-react';
 import { useBattleCardStore, useMarketDataStore } from '@/lib/stores';
 import { usePaperTradingStore } from '@/lib/stores/paperTradingStore';
@@ -33,6 +34,9 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const [expanded, setExpanded] = useState(true);
   const [showChart, setShowChart] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'exit' | 'delete' | null>(null);
+  const [editingPosition, setEditingPosition] = useState(false);
+  const [editStopLoss, setEditStopLoss] = useState<string>('');
+  const [editTarget, setEditTarget] = useState<string>('');
   
   const { updateBattleCard, deleteBattleCard } = useBattleCardStore();
   const prices = useMarketDataStore(state => state.prices);
@@ -42,6 +46,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const getOpenPosition = usePaperTradingStore(state => state.getOpenPosition);
   const closePosition = usePaperTradingStore(state => state.closePosition);
   const calculateLivePnl = usePaperTradingStore(state => state.calculateLivePnl);
+  const updatePosition = usePaperTradingStore(state => state.updatePosition);
 
   const symbol = card.instrument.replace('/USDT', 'USDT').replace('/', '');
   const currentPrice = prices[symbol]?.price;
@@ -253,21 +258,94 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                 </div>
               </div>
               
-              {/* Labels */}
-              <div className="flex justify-between items-start mt-1">
-                <div className="text-left">
-                  <p className="text-[10px] text-danger font-medium">STOP LOSS</p>
-                  <p className="font-mono text-sm font-bold text-danger">${formatPrice(position.stopLoss)}</p>
+              {/* Labels / Edit Mode */}
+              {editingPosition ? (
+                <div className="mt-2 p-3 bg-background-tertiary rounded-lg">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-danger font-medium mb-1 block">STOP LOSS</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editStopLoss}
+                        onChange={(e) => setEditStopLoss(e.target.value)}
+                        className="input input-sm w-full font-mono text-sm"
+                        placeholder={formatPrice(position.stopLoss)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-success font-medium mb-1 block">TARGET</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editTarget}
+                        onChange={(e) => setEditTarget(e.target.value)}
+                        className="input input-sm w-full font-mono text-sm"
+                        placeholder={formatPrice(position.target1)}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => {
+                        setEditingPosition(false);
+                        setEditStopLoss('');
+                        setEditTarget('');
+                      }}
+                      className="btn btn-xs btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        const updates: { stopLoss?: number; target1?: number } = {};
+                        if (editStopLoss && !isNaN(parseFloat(editStopLoss))) {
+                          updates.stopLoss = parseFloat(editStopLoss);
+                        }
+                        if (editTarget && !isNaN(parseFloat(editTarget))) {
+                          updates.target1 = parseFloat(editTarget);
+                        }
+                        if (Object.keys(updates).length > 0) {
+                          updatePosition(position.id, updates);
+                        }
+                        setEditingPosition(false);
+                        setEditStopLoss('');
+                        setEditTarget('');
+                      }}
+                      className="btn btn-xs btn-primary"
+                    >
+                      <Check className="w-3 h-3" />
+                      Save
+                    </button>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-foreground-muted font-medium">CURRENT</p>
-                  <p className="font-mono text-sm font-bold text-accent">${formatPrice(currentPrice)}</p>
+              ) : (
+                <div className="flex justify-between items-start mt-1">
+                  <div className="text-left">
+                    <p className="text-[10px] text-danger font-medium">STOP LOSS</p>
+                    <p className="font-mono text-sm font-bold text-danger">${formatPrice(position.stopLoss)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-foreground-muted font-medium">CURRENT</p>
+                    <p className="font-mono text-sm font-bold text-accent">${formatPrice(currentPrice)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-success font-medium">TARGET</p>
+                    <p className="font-mono text-sm font-bold text-success">${formatPrice(position.target1)}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditStopLoss(position.stopLoss.toString());
+                      setEditTarget(position.target1.toString());
+                      setEditingPosition(true);
+                    }}
+                    className="ml-2 p-1.5 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
+                    title="Edit Stop Loss & Target"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </button>
                 </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-success font-medium">TARGET</p>
-                  <p className="font-mono text-sm font-bold text-success">${formatPrice(position.target1)}</p>
-                </div>
-              </div>
+              )}
             </div>
             
             {/* Warning for non-primary scenario trigger */}

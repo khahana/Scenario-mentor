@@ -18,7 +18,10 @@ import {
   Edit3,
   Trash2,
   Activity,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Check,
+  X
 } from 'lucide-react';
 import { usePaperTradingStore } from '@/lib/stores/paperTradingStore';
 import { useMarketDataStore } from '@/lib/stores';
@@ -41,7 +44,8 @@ export function Journal() {
     avgRMultiple,
     settings,
     addJournalNote,
-    resetAccount
+    resetAccount,
+    updatePosition
   } = usePaperTradingStore();
   
   const prices = useMarketDataStore(state => state.prices);
@@ -52,6 +56,9 @@ export function Journal() {
   const [expandedEntry, setExpandedEntry] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [notesText, setNotesText] = useState('');
+  const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
+  const [editPosStopLoss, setEditPosStopLoss] = useState('');
+  const [editPosTarget, setEditPosTarget] = useState('');
 
   // Get open positions with live PnL
   const openPositions = positions.filter(p => p.status === 'open');
@@ -107,6 +114,115 @@ export function Journal() {
     addJournalNote(entryId, notesText);
     setEditingNotes(null);
     setNotesText('');
+  };
+
+  // Export journal entries to CSV
+  const exportJournalCSV = () => {
+    if (journal.length === 0) {
+      alert('No trades to export');
+      return;
+    }
+
+    const headers = [
+      'Date',
+      'Instrument',
+      'Direction',
+      'Scenario Type',
+      'Scenario Name',
+      'Entry Price',
+      'Exit Price',
+      'Stop Loss',
+      'Target',
+      'Size',
+      'Leverage',
+      'P&L ($)',
+      'P&L (%)',
+      'R Multiple',
+      'Outcome',
+      'Exit Reason',
+      'Holding Period',
+      'Thesis',
+      'Lessons Learned'
+    ];
+
+    const rows = journal.map(entry => [
+      new Date(entry.date).toISOString(),
+      entry.instrument,
+      entry.direction,
+      entry.scenarioType,
+      entry.scenarioName,
+      entry.entryPrice,
+      entry.exitPrice,
+      entry.stopLoss,
+      entry.target,
+      entry.size,
+      entry.leverage,
+      entry.pnl.toFixed(2),
+      entry.pnlPercent.toFixed(2),
+      entry.rMultiple.toFixed(2),
+      entry.outcome,
+      entry.exitReason,
+      entry.holdingPeriod,
+      `"${entry.thesis.replace(/"/g, '""')}"`,
+      `"${(entry.lessonsLearned || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadCSV(csv, `scenario-trades-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // Export open positions to CSV
+  const exportPositionsCSV = () => {
+    if (positions.length === 0) {
+      alert('No positions to export');
+      return;
+    }
+
+    const headers = [
+      'Opened At',
+      'Instrument',
+      'Direction',
+      'Status',
+      'Entry Price',
+      'Stop Loss',
+      'Target',
+      'Size',
+      'Leverage',
+      'Scenario Type',
+      'Scenario Name',
+      'Battle Card ID'
+    ];
+
+    const rows = positions.map(pos => [
+      new Date(pos.openedAt).toISOString(),
+      pos.instrument,
+      pos.direction,
+      pos.status,
+      pos.entryPrice,
+      pos.stopLoss,
+      pos.target1,
+      pos.size,
+      pos.leverage || 1,
+      pos.scenarioType,
+      pos.scenarioName,
+      pos.battleCardId
+    ]);
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    downloadCSV(csv, `scenario-positions-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // Helper to trigger CSV download
+  const downloadCSV = (csv: string, filename: string) => {
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -174,17 +290,41 @@ export function Journal() {
           ))}
         </div>
 
-        <button
-          onClick={() => {
-            if (confirm('Reset paper trading account? This will clear all trades and reset balance.')) {
-              resetAccount();
-            }
-          }}
-          className="btn btn-secondary text-sm"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Reset Account
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Export Buttons */}
+          <div className="flex items-center gap-1 mr-2">
+            <button
+              onClick={exportJournalCSV}
+              disabled={journal.length === 0}
+              className="btn btn-secondary text-sm"
+              title="Export trade history to CSV"
+            >
+              <Download className="w-4 h-4" />
+              Trades CSV
+            </button>
+            <button
+              onClick={exportPositionsCSV}
+              disabled={positions.length === 0}
+              className="btn btn-secondary text-sm"
+              title="Export positions to CSV"
+            >
+              <Download className="w-4 h-4" />
+              Positions CSV
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              if (confirm('Reset paper trading account? This will clear all trades and reset balance.')) {
+                resetAccount();
+              }
+            }}
+            className="btn btn-secondary text-sm text-danger hover:bg-danger/10"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reset Account
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -484,24 +624,101 @@ export function Journal() {
                     </div>
                     
                     {/* Trade Levels Grid */}
-                    <div className="grid grid-cols-4 gap-2 text-xs">
-                      <div className="p-2 rounded-md bg-background-tertiary/50 text-center">
-                        <p className="text-foreground-muted mb-0.5">Entry</p>
-                        <p className="font-mono font-semibold text-foreground">${formatPrice(pos.entryPrice)}</p>
+                    {editingPositionId === pos.id ? (
+                      <div className="p-3 rounded-lg bg-background-tertiary/50 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] text-danger font-medium mb-1 block">STOP LOSS</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editPosStopLoss}
+                              onChange={(e) => setEditPosStopLoss(e.target.value)}
+                              className="input input-sm w-full font-mono text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-success font-medium mb-1 block">TARGET</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={editPosTarget}
+                              onChange={(e) => setEditPosTarget(e.target.value)}
+                              className="input input-sm w-full font-mono text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => {
+                              setEditingPositionId(null);
+                              setEditPosStopLoss('');
+                              setEditPosTarget('');
+                            }}
+                            className="btn btn-xs btn-secondary"
+                          >
+                            <X className="w-3 h-3" />
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              const updates: { stopLoss?: number; target1?: number } = {};
+                              if (editPosStopLoss && !isNaN(parseFloat(editPosStopLoss))) {
+                                updates.stopLoss = parseFloat(editPosStopLoss);
+                              }
+                              if (editPosTarget && !isNaN(parseFloat(editPosTarget))) {
+                                updates.target1 = parseFloat(editPosTarget);
+                              }
+                              if (Object.keys(updates).length > 0) {
+                                updatePosition(pos.id, updates);
+                              }
+                              setEditingPositionId(null);
+                              setEditPosStopLoss('');
+                              setEditPosTarget('');
+                            }}
+                            className="btn btn-xs btn-primary"
+                          >
+                            <Check className="w-3 h-3" />
+                            Save
+                          </button>
+                        </div>
                       </div>
-                      <div className="p-2 rounded-md bg-accent/10 text-center">
-                        <p className="text-foreground-muted mb-0.5">Current</p>
-                        <p className="font-mono font-semibold text-accent">${formatPrice(currentPrice)}</p>
+                    ) : (
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <div className="p-2 rounded-md bg-background-tertiary/50 text-center">
+                          <p className="text-foreground-muted mb-0.5">Entry</p>
+                          <p className="font-mono font-semibold text-foreground">${formatPrice(pos.entryPrice)}</p>
+                        </div>
+                        <div className="p-2 rounded-md bg-accent/10 text-center">
+                          <p className="text-foreground-muted mb-0.5">Current</p>
+                          <p className="font-mono font-semibold text-accent">${formatPrice(currentPrice)}</p>
+                        </div>
+                        <div 
+                          className="p-2 rounded-md bg-danger/5 text-center border border-danger/20 cursor-pointer hover:bg-danger/10 transition-colors"
+                          onClick={() => {
+                            setEditPosStopLoss(pos.stopLoss.toString());
+                            setEditPosTarget(pos.target1.toString());
+                            setEditingPositionId(pos.id);
+                          }}
+                          title="Click to edit"
+                        >
+                          <p className="text-foreground-muted mb-0.5">Stop <Edit3 className="w-3 h-3 inline opacity-50" /></p>
+                          <p className="font-mono font-semibold text-danger">${formatPrice(pos.stopLoss)}</p>
+                        </div>
+                        <div 
+                          className="p-2 rounded-md bg-success/5 text-center border border-success/20 cursor-pointer hover:bg-success/10 transition-colors"
+                          onClick={() => {
+                            setEditPosStopLoss(pos.stopLoss.toString());
+                            setEditPosTarget(pos.target1.toString());
+                            setEditingPositionId(pos.id);
+                          }}
+                          title="Click to edit"
+                        >
+                          <p className="text-foreground-muted mb-0.5">Target <Edit3 className="w-3 h-3 inline opacity-50" /></p>
+                          <p className="font-mono font-semibold text-success">${formatPrice(pos.target1)}</p>
+                        </div>
                       </div>
-                      <div className="p-2 rounded-md bg-danger/5 text-center border border-danger/20">
-                        <p className="text-foreground-muted mb-0.5">Stop</p>
-                        <p className="font-mono font-semibold text-danger">${formatPrice(pos.stopLoss)}</p>
-                      </div>
-                      <div className="p-2 rounded-md bg-success/5 text-center border border-success/20">
-                        <p className="text-foreground-muted mb-0.5">Target</p>
-                        <p className="font-mono font-semibold text-success">${formatPrice(pos.target1)}</p>
-                      </div>
-                    </div>
+                    )}
                     
                     {/* Size info */}
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/30 text-xs text-foreground-muted">

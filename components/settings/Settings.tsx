@@ -233,24 +233,16 @@ export function Settings({ onClose }: SettingsProps) {
               <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl">
                 <h4 className="font-semibold text-accent mb-2">🔑 Your Personal API Key</h4>
                 <p className="text-sm text-foreground-secondary">
-                  Each user needs their own Anthropic API key. Your key is stored locally in your browser only - 
+                  Each user needs their own API key. Your key is stored locally in your browser only - 
                   it's never shared or stored on any server.
                 </p>
               </div>
               
-              {/* Anthropic API Key */}
+              {/* API Key */}
               <div>
-                <label className="label">Anthropic API Key</label>
+                <label className="label">AI API Key</label>
                 <p className="text-sm text-foreground-muted mb-3">
-                  Required for AI features (chart analysis, AI Mentor, Scanner).{' '}
-                  <a 
-                    href="https://console.anthropic.com/account/keys" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-accent hover:underline font-medium"
-                  >
-                    Get your free key here →
-                  </a>
+                  Required for AI features (chart analysis, AI Mentor, Scanner).
                 </p>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
@@ -289,7 +281,7 @@ export function Settings({ onClose }: SettingsProps) {
                   ) : (
                     <>
                       <AlertCircle className="w-4 h-4 text-warning" />
-                      <span className="text-sm text-warning">No API key set - using demo mode</span>
+                      <span className="text-sm text-warning">No API key set - using basic analysis mode</span>
                     </>
                   )}
                 </div>
@@ -310,7 +302,7 @@ export function Settings({ onClose }: SettingsProps) {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-foreground-secondary">Claude AI</span>
+                    <span className="text-foreground-secondary">AI Analysis</span>
                     <span className={cn(
                       'flex items-center gap-1',
                       apiKey ? 'text-success' : 'text-warning'

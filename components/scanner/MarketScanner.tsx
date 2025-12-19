@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import {
   Search,
   TrendingUp,
@@ -13,7 +13,9 @@ import {
   Plus,
   Flame,
   Activity,
-  BarChart2
+  BarChart2,
+  Bell,
+  X
 } from 'lucide-react';
 import { useMarketDataStore, useUIStore } from '@/lib/stores';
 import { cn, generateId, formatPrice } from '@/lib/utils/helpers';
@@ -387,6 +389,14 @@ function analyzeAsset(symbol: string, priceData: any, futuresData?: FuturesData)
   };
 }
 
+// Notification type for hot setup alerts
+interface HotSetupNotification {
+  id: string;
+  type: 'hot' | 'very_hot';
+  symbols: string[];
+  timestamp: Date;
+}
+
 export function MarketScanner() {
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -394,10 +404,57 @@ export function MarketScanner() {
   const [filter, setFilter] = useState<'all' | 'hot' | 'bullish' | 'bearish'>('all');
   const [hasInitialScan, setHasInitialScan] = useState(false);
   const [futuresDataCache, setFuturesDataCache] = useState<Record<string, FuturesData>>({});
+  const [notifications, setNotifications] = useState<HotSetupNotification[]>([]);
+  const previousHotSetupsRef = useRef<Set<string>>(new Set());
   
   const prices = useMarketDataStore(state => state.prices);
   const watchlist = useMarketDataStore(state => state.watchlist);
   const setActiveView = useUIStore(state => state.setActiveView);
+  
+  // Request browser notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+  
+  // Send browser notification
+  const sendBrowserNotification = useCallback((title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, {
+        body,
+        icon: '🔥',
+        tag: 'hot-setup', // Prevents duplicate notifications
+      });
+    }
+  }, []);
+  
+  // Add notification to stack
+  const addNotification = useCallback((type: 'hot' | 'very_hot', symbols: string[]) => {
+    const notification: HotSetupNotification = {
+      id: generateId(),
+      type,
+      symbols,
+      timestamp: new Date()
+    };
+    setNotifications(prev => [notification, ...prev].slice(0, 5)); // Keep last 5
+    
+    // Also send browser notification
+    const emoji = type === 'very_hot' ? '🔥🔥' : '🔥';
+    const title = type === 'very_hot' ? 'Very Hot Setup Detected!' : 'Hot Setup Detected!';
+    const body = `${symbols.join(', ')} - Score ${type === 'very_hot' ? '80+' : '70+'}`;
+    sendBrowserNotification(title, body);
+    
+    // Auto-dismiss after 10 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 10000);
+  }, [sendBrowserNotification]);
+  
+  // Remove notification
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
   
   // Fetch futures data (funding rate, OI) for all symbols
   const fetchFuturesData = useCallback(async (symbols: string[]): Promise<Record<string, FuturesData>> => {
@@ -505,6 +562,30 @@ export function MarketScanner() {
       // Sort by score
       results.sort((a, b) => b.score - a.score);
       
+      // Detect NEW hot setups (not seen before)
+      const veryHotSetups = results.filter(r => r.score >= 80);
+      const hotSetups = results.filter(r => r.score >= 70 && r.score < 80);
+      
+      // Find new very hot setups
+      const newVeryHot = veryHotSetups.filter(r => !previousHotSetupsRef.current.has(`${r.symbol}-veryhot`));
+      const newHot = hotSetups.filter(r => !previousHotSetupsRef.current.has(`${r.symbol}-hot`));
+      
+      // Notify for new very hot setups
+      if (newVeryHot.length > 0) {
+        addNotification('very_hot', newVeryHot.map(r => r.symbol.replace('USDT', '')));
+      }
+      
+      // Notify for new hot setups
+      if (newHot.length > 0) {
+        addNotification('hot', newHot.map(r => r.symbol.replace('USDT', '')));
+      }
+      
+      // Update tracking of known hot setups
+      const newHotSet = new Set<string>();
+      veryHotSetups.forEach(r => newHotSet.add(`${r.symbol}-veryhot`));
+      hotSetups.forEach(r => newHotSet.add(`${r.symbol}-hot`));
+      previousHotSetupsRef.current = newHotSet;
+      
       setScanResults(results);
       setLastScan(new Date());
       setHasInitialScan(true);
@@ -513,7 +594,7 @@ export function MarketScanner() {
     } finally {
       setIsScanning(false);
     }
-  }, [watchlist, prices, fetchFuturesData]);
+  }, [watchlist, prices, fetchFuturesData, addNotification]);
   
   // Initial scan on mount (once)
   useEffect(() => {
@@ -521,6 +602,17 @@ export function MarketScanner() {
       runScan();
     }
   }, [prices, hasInitialScan, runScan]);
+  
+  // Auto-scan every 5 minutes to detect new hot setups
+  useEffect(() => {
+    if (!hasInitialScan) return;
+    
+    const interval = setInterval(() => {
+      runScan();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => clearInterval(interval);
+  }, [hasInitialScan, runScan]);
   
   // Update only prices in existing results (preserves AI analysis, expanded state etc)
   useEffect(() => {
@@ -650,6 +742,53 @@ In 2-3 sentences, give a quick trading thesis considering the funding and OI dat
   
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Hot Setup Notifications Toast */}
+      {notifications.length > 0 && (
+        <div className="fixed top-20 right-6 z-50 space-y-2 max-w-sm">
+          {notifications.map((notif) => (
+            <div
+              key={notif.id}
+              className={cn(
+                'p-4 rounded-xl shadow-xl border animate-slide-up flex items-start gap-3',
+                notif.type === 'very_hot' 
+                  ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 border-red-500/50'
+                  : 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-orange-500/50'
+              )}
+            >
+              <div className={cn(
+                'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+                notif.type === 'very_hot' ? 'bg-red-500/20' : 'bg-orange-500/20'
+              )}>
+                <Flame className={cn(
+                  'w-5 h-5',
+                  notif.type === 'very_hot' ? 'text-red-500' : 'text-orange-500'
+                )} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={cn(
+                  'font-semibold text-sm',
+                  notif.type === 'very_hot' ? 'text-red-400' : 'text-orange-400'
+                )}>
+                  {notif.type === 'very_hot' ? '🔥🔥 Very Hot Setup!' : '🔥 Hot Setup Detected'}
+                </p>
+                <p className="text-foreground font-medium text-sm mt-0.5">
+                  {notif.symbols.join(', ')}
+                </p>
+                <p className="text-foreground-muted text-xs mt-1">
+                  Score {notif.type === 'very_hot' ? '80+' : '70+'} • {notif.timestamp.toLocaleTimeString()}
+                </p>
+              </div>
+              <button
+                onClick={() => dismissNotification(notif.id)}
+                className="p-1 rounded hover:bg-background-tertiary text-foreground-muted hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -190,7 +190,7 @@ export function AIChat({ onClose, fullScreen = false }: AIChatProps) {
         const errorMessage: AIMessage = {
           id: generateId(),
           role: 'assistant',
-          content: '⚠️ **API Key Required**\n\nTo use AI Mentor, please add your Anthropic API key:\n\n1. Click **Settings** (gear icon at bottom of sidebar)\n2. Go to **API Keys** tab\n3. Paste your Claude API key\n4. Click Save\n\nGet your key at: console.anthropic.com',
+          content: '⚠️ **API Key Required**\n\nTo use AI Mentor, please add your API key:\n\n1. Click **Settings** (gear icon at bottom of sidebar)\n2. Go to **API Keys** tab\n3. Paste your API key\n4. Click Save\n\nGet your key from your AI provider.',
           timestamp: new Date(),
           metadata: { mode }
         };

@@ -114,6 +114,7 @@ interface PaperTradingState {
     actualScenarioName: string,
     scenarioNotes: string
   ) => void;
+  updatePosition: (id: string, updates: { stopLoss?: number; target1?: number; target2?: number; target3?: number }) => void;
   getOpenPosition: (battleCardId: string) => PaperPosition | undefined;
   getOpenPositions: () => PaperPosition[];
   addJournalNote: (entryId: string, note: string) => void;
@@ -328,6 +329,14 @@ export const usePaperTradingStore = create<PaperTradingState>()(
 
       getOpenPositions: () => {
         return get().positions.filter(p => p.status === 'open');
+      },
+
+      updatePosition: (id, updates) => {
+        set((state) => ({
+          positions: state.positions.map(p => 
+            p.id === id ? { ...p, ...updates } : p
+          ),
+        }));
       },
 
       addJournalNote: (entryId, note) => {
