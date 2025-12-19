@@ -96,13 +96,24 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
     setConfirmAction(null);
   };
 
+  // Update scenario levels (Entry, TP, SL)
+  const handleUpdateScenario = (scenarioType: string, updates: { entryPrice?: number; target1?: number; stopLoss?: number }) => {
+    const updatedScenarios = card.scenarios.map(s => 
+      s.type === scenarioType ? { ...s, ...updates } : s
+    );
+    updateBattleCard(card.id, { scenarios: updatedScenarios });
+  };
+
   return (
-    <div className={cn(
-      'card border-2 transition-all duration-300',
-      getStatusColor()
-    )}>
+    <div 
+      className={cn(
+        'rounded-xl border-2 transition-all duration-300 p-4',
+        getStatusColor()
+      )}
+      style={{ backgroundColor: '#080810' }}
+    >
       {/* Header */}
-      <div className="p-4">
+      <div>
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className={cn(
@@ -406,6 +417,8 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                   distance={distance}
                   currentPrice={currentPrice}
                   isActiveScenario={position?.scenarioType === scenario.type}
+                  canEdit={!position}
+                  onUpdateScenario={handleUpdateScenario}
                 />
               ))}
           </div>
@@ -543,9 +556,16 @@ interface ScenarioStatusCardProps {
   distance: number;
   currentPrice?: number;
   isActiveScenario?: boolean;
+  canEdit?: boolean;
+  onUpdateScenario?: (scenarioType: string, updates: { entryPrice?: number; target1?: number; stopLoss?: number }) => void;
 }
 
-function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActiveScenario }: ScenarioStatusCardProps) {
+function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActiveScenario, canEdit, onUpdateScenario }: ScenarioStatusCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editEntry, setEditEntry] = useState('');
+  const [editTarget, setEditTarget] = useState('');
+  const [editStopLoss, setEditStopLoss] = useState('');
+  
   const color = getScenarioColor(scenario.type);
   const isActive = status === 'at_trigger' || status === 'approaching';
   
@@ -553,6 +573,39 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
   const direction = scenario.entryPrice && scenario.stopLoss
     ? (scenario.entryPrice > scenario.stopLoss ? 'long' : 'short')
     : null;
+  
+  const startEditing = () => {
+    setEditEntry(scenario.entryPrice?.toString() || '');
+    setEditTarget(scenario.target1?.toString() || '');
+    setEditStopLoss(scenario.stopLoss?.toString() || '');
+    setIsEditing(true);
+  };
+  
+  const saveEdits = () => {
+    if (onUpdateScenario) {
+      const updates: { entryPrice?: number; target1?: number; stopLoss?: number } = {};
+      if (editEntry && !isNaN(parseFloat(editEntry))) {
+        updates.entryPrice = parseFloat(editEntry);
+      }
+      if (editTarget && !isNaN(parseFloat(editTarget))) {
+        updates.target1 = parseFloat(editTarget);
+      }
+      if (editStopLoss && !isNaN(parseFloat(editStopLoss))) {
+        updates.stopLoss = parseFloat(editStopLoss);
+      }
+      if (Object.keys(updates).length > 0) {
+        onUpdateScenario(scenario.type, updates);
+      }
+    }
+    setIsEditing(false);
+  };
+  
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditEntry('');
+    setEditTarget('');
+    setEditStopLoss('');
+  };
   
   return (
     <div 
@@ -563,8 +616,8 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
         status === 'approaching' && !isActiveScenario && 'ring-1 ring-warning'
       )}
       style={{ 
-        backgroundColor: `${color}10`,
-        borderColor: isActive ? color : `${color}30`
+        backgroundColor: '#0a0a0e',
+        borderColor: isActive ? color : `${color}40`
       }}
     >
       <div className="flex items-center justify-between mb-2">
@@ -586,9 +639,20 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
             </span>
           )}
         </div>
-        <span className="text-base font-bold" style={{ color }}>
-          {scenario.probability}%
-        </span>
+        <div className="flex items-center gap-2">
+          {canEdit && !isEditing && scenario.entryPrice && (
+            <button
+              onClick={startEditing}
+              className="p-1 rounded hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
+              title="Edit levels"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <span className="text-base font-bold" style={{ color }}>
+            {scenario.probability}%
+          </span>
+        </div>
       </div>
       
       {/* Scenario Name */}
@@ -606,7 +670,54 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
         </div>
       )}
       
-      {scenario.entryPrice ? (
+      {isEditing ? (
+        /* Edit Mode */
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-[10px] text-success font-semibold uppercase mb-1 block">Take Profit</label>
+              <input
+                type="number"
+                step="any"
+                value={editTarget}
+                onChange={(e) => setEditTarget(e.target.value)}
+                className="input input-sm w-full font-mono text-xs"
+                placeholder="Target"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-foreground-muted font-semibold uppercase mb-1 block">Entry</label>
+              <input
+                type="number"
+                step="any"
+                value={editEntry}
+                onChange={(e) => setEditEntry(e.target.value)}
+                className="input input-sm w-full font-mono text-xs"
+                placeholder="Entry"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-danger font-semibold uppercase mb-1 block">Stop Loss</label>
+              <input
+                type="number"
+                step="any"
+                value={editStopLoss}
+                onChange={(e) => setEditStopLoss(e.target.value)}
+                className="input input-sm w-full font-mono text-xs"
+                placeholder="Stop"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={cancelEditing} className="btn btn-xs btn-secondary">
+              <X className="w-3 h-3" /> Cancel
+            </button>
+            <button onClick={saveEdits} className="btn btn-xs btn-primary">
+              <Check className="w-3 h-3" /> Save
+            </button>
+          </div>
+        </div>
+      ) : scenario.entryPrice ? (
         <div className="space-y-3">
           {/* Professional Trade Levels Grid */}
           <div className="grid grid-cols-3 gap-2">

@@ -71,11 +71,12 @@ export function Journal() {
     const priceDiff = pos.direction === 'long' 
       ? currentPrice - pos.entryPrice 
       : pos.entryPrice - currentPrice;
-    const leverage = pos.leverage || 1;
+    // Use position leverage if stored, otherwise use settings leverage
+    const leverage = pos.leverage || settings.leverage || 1;
     // Correct P&L: (price change %) * position size * leverage
     const pnlPercent = (priceDiff / pos.entryPrice) * 100 * leverage;
     const pnl = (priceDiff / pos.entryPrice) * pos.size * leverage;
-    return { currentPrice, pnl, pnlPercent };
+    return { currentPrice, pnl, pnlPercent, leverage };
   };
 
   // Calculate unrealized P&L from all open positions

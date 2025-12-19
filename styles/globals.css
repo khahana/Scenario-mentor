@@ -5,9 +5,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --background: #0a0a0f;
-  --background-secondary: #141418;
-  --background-tertiary: #1c1c24;
+  --background: #08080c;
+  --background-secondary: #0a0a0e;
+  --background-tertiary: #0e0e14;
   --foreground: #fafafa;
   --foreground-secondary: #a1a1aa;
   
@@ -19,8 +19,8 @@
   --scenario-c: #f59e0b;
   --scenario-d: #ef4444;
   
-  --border: #2a2a32;
-  --card: #1e1e26;
+  --border: #1a1a22;
+  --card: #0c0c10;
 }
 
 * {
@@ -104,11 +104,15 @@ body {
 @layer components {
   /* Cards */
   .card {
-    @apply bg-card rounded-xl border border-border p-4 transition-all duration-200;
+    @apply rounded-xl border border-border p-4 transition-all duration-200;
+    background-color: #080810 !important;
   }
   
   .card-hover {
-    @apply hover:border-border-hover hover:bg-card-hover;
+    @apply hover:border-border-hover;
+  }
+  .card-hover:hover {
+    background-color: #0c0c14 !important;
   }
   
   .card-glow {

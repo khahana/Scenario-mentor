@@ -263,6 +263,7 @@ export function usePriceMonitor() {
             entryPrice: currentPrice,  // Use actual market price when triggered (simulates market order fill)
             openedAt: new Date(),
             size: paperSettings.defaultSize,
+            leverage: paperSettings.leverage,
             stopLoss: scenario.stopLoss,
             target1: scenario.target1,
             target2: scenario.target2 ?? undefined,
