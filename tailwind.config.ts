@@ -13,9 +13,9 @@ const config: Config = {
         // Core palette
         background: {
           DEFAULT: '#0a0a0f',
-          secondary: '#12121a',
-          tertiary: '#1a1a24',
-          elevated: '#22222e',
+          secondary: '#141418',
+          tertiary: '#1c1c24',
+          elevated: '#262630',
         },
         foreground: {
           DEFAULT: '#fafafa',
@@ -42,12 +42,12 @@ const config: Config = {
         info: '#06b6d4',
         // UI elements
         border: {
-          DEFAULT: '#27272a',
-          hover: '#3f3f46',
+          DEFAULT: '#2a2a32',
+          hover: '#3f3f48',
         },
         card: {
-          DEFAULT: '#18181b',
-          hover: '#1f1f23',
+          DEFAULT: '#1e1e26',
+          hover: '#282830',
         },
       },
       fontFamily: {

@@ -6,8 +6,8 @@
 
 :root {
   --background: #0a0a0f;
-  --background-secondary: #12121a;
-  --background-tertiary: #1a1a24;
+  --background-secondary: #141418;
+  --background-tertiary: #1c1c24;
   --foreground: #fafafa;
   --foreground-secondary: #a1a1aa;
   
@@ -19,8 +19,8 @@
   --scenario-c: #f59e0b;
   --scenario-d: #ef4444;
   
-  --border: #27272a;
-  --card: #18181b;
+  --border: #2a2a32;
+  --card: #1e1e26;
 }
 
 * {
