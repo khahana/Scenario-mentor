@@ -57,7 +57,7 @@ export default function Home() {
       
       {/* AI Chat Slide-out Panel */}
       {showAIChat && activeView !== 'chat' && (
-        <div className="fixed right-0 top-0 h-full w-[400px] bg-background-secondary border-l border-border shadow-2xl z-50 animate-slide-up">
+        <div className="fixed right-0 top-0 h-full w-[520px] bg-background-secondary border-l border-border shadow-2xl z-50 animate-slide-up">
           <AIChat onClose={toggleAIChat} />
         </div>
       )}

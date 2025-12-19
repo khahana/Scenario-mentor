@@ -315,19 +315,54 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
       {/* Expanded Content */}
       {expanded && (
         <div className="border-t border-border">
-          {/* Scenarios */}
-          <div className="p-4 grid grid-cols-4 gap-3">
-            {triggerStatuses.map(({ scenario, status, distance }) => (
-              <ScenarioStatusCard
-                key={scenario.type}
-                scenario={scenario}
-                status={status}
-                distance={distance}
-                currentPrice={currentPrice}
-                isActiveScenario={position?.scenarioType === scenario.type}
-              />
-            ))}
+          {/* Primary Scenarios (A & B) */}
+          <div className="p-4 grid grid-cols-2 gap-4">
+            {triggerStatuses
+              .filter(({ scenario }) => scenario.type === 'A' || scenario.type === 'B')
+              .map(({ scenario, status, distance }) => (
+                <ScenarioStatusCard
+                  key={scenario.type}
+                  scenario={scenario}
+                  status={status}
+                  distance={distance}
+                  currentPrice={currentPrice}
+                  isActiveScenario={position?.scenarioType === scenario.type}
+                />
+              ))}
           </div>
+          
+          {/* Secondary Scenarios (C & D) - Compact Row */}
+          {triggerStatuses.some(({ scenario }) => scenario.type === 'C' || scenario.type === 'D') && (
+            <div className="px-4 pb-3">
+              <div className="flex items-center gap-2 p-2 bg-background-tertiary/50 rounded-lg">
+                <span className="text-xs text-foreground-muted">Alt scenarios:</span>
+                {triggerStatuses
+                  .filter(({ scenario }) => scenario.type === 'C' || scenario.type === 'D')
+                  .map(({ scenario, status, distance }) => {
+                    const color = getScenarioColor(scenario.type);
+                    return (
+                      <div 
+                        key={scenario.type}
+                        className="flex items-center gap-2 px-2 py-1 rounded-md bg-background-tertiary"
+                        style={{ borderLeft: `3px solid ${color}` }}
+                      >
+                        <span className="text-xs font-bold" style={{ color }}>{scenario.type}</span>
+                        <span className="text-xs text-foreground-secondary truncate max-w-[120px]">{scenario.name}</span>
+                        <span className="text-xs text-foreground-muted">{scenario.probability}%</span>
+                        {status !== 'far' && (
+                          <span className={cn(
+                            'text-[10px] px-1.5 py-0.5 rounded',
+                            status === 'at_trigger' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
+                          )}>
+                            {distance.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
 
           {/* Chart Toggle */}
           <div className="px-4 pb-4">
