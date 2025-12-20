@@ -909,7 +909,7 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
               )}
             </div>
             
-            {/* Entry Zone */}
+            {/* Entry Price */}
             <div className={cn(
               "relative overflow-hidden rounded-lg p-2 border",
               status === 'at_trigger' 
@@ -923,13 +923,14 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
               <p className={cn(
                 "text-[10px] font-semibold uppercase tracking-wider mb-0.5",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground-muted'
-              )}>Entry Zone</p>
+              )}>Entry</p>
               <p className={cn(
                 "text-sm font-mono font-bold",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground'
               )}>
-                ${formatPrice(scenario.entryPrice * 0.9985)} - ${formatPrice(scenario.entryPrice * 1.0015)}
+                ${formatPrice(scenario.entryPrice)}
               </p>
+              <p className="text-[9px] text-foreground-muted/60">±0.1% trigger</p>
             </div>
             
             {/* Stop Loss */}

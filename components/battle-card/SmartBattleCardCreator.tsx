@@ -739,13 +739,14 @@ function ScenarioCard({ scenario, currentPrice, onProbabilityChange }: {
 
       {(scenario.type === 'A' || scenario.type === 'B') && scenario.entry && (
         <div className="mt-3 pt-3 border-t border-border/50">
-          {/* Entry Zone - 0.1% trigger range */}
+          {/* Entry Price */}
           {scenario.entry && (
             <div className="mb-2">
-              <span className="text-foreground-muted text-sm">Entry Zone</span>
+              <span className="text-foreground-muted text-sm">Entry</span>
               <p className="font-mono font-medium text-foreground text-base">
-                ${formatPrice(scenario.entry * 0.999)} — ${formatPrice(scenario.entry * 1.001)}
+                ${formatPrice(scenario.entry)}
               </p>
+              <span className="text-[10px] text-foreground-muted/60">±0.1% trigger</span>
             </div>
           )}
           <div className="grid grid-cols-3 gap-2 text-sm">
