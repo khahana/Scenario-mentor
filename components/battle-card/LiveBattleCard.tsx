@@ -17,7 +17,6 @@ import {
   Activity,
   LogOut,
   Edit3,
-  RefreshCw,
   Brain,
   AlertCircle
 } from 'lucide-react';
@@ -28,8 +27,7 @@ import { cn, getScenarioColor, formatPrice, timeAgo } from '@/lib/utils/helpers'
 import { TradingChart } from '@/components/charts/TradingChart';
 import type { BattleCard, Scenario } from '@/types';
 
-// Constants for reassessment cooldowns
-const TECHNICAL_REASSESS_INTERVAL = 10 * 60 * 1000; // 10 minutes
+// AI reassessment cooldown
 const AI_REASSESS_COOLDOWN = 15 * 60 * 1000; // 15 minutes
 
 interface LiveBattleCardProps {
@@ -45,11 +43,9 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const [editStopLoss, setEditStopLoss] = useState<string>('');
   const [editTarget, setEditTarget] = useState<string>('');
   
-  // Re-assessment state
-  const [isReassessing, setIsReassessing] = useState(false);
+  // Re-assessment state (AI only)
   const [isAIReassessing, setIsAIReassessing] = useState(false);
   const [reassessmentResult, setReassessmentResult] = useState<string | null>(null);
-  const [technicalCooldown, setTechnicalCooldown] = useState(0);
   const [aiCooldown, setAICooldown] = useState(0);
   
   const { updateBattleCard, deleteBattleCard } = useBattleCardStore();
@@ -82,21 +78,12 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const isNonPrimaryTrigger = position && highestProbScenario && 
     position.scenarioType !== highestProbScenario.type;
 
-  // Calculate cooldowns for reassessment
+  // Calculate AI cooldown
   useEffect(() => {
     const updateCooldowns = () => {
       const now = Date.now();
       
-      // Technical cooldown
-      if (card.lastTechnicalReassess) {
-        const techElapsed = now - new Date(card.lastTechnicalReassess).getTime();
-        const techRemaining = Math.max(0, TECHNICAL_REASSESS_INTERVAL - techElapsed);
-        setTechnicalCooldown(techRemaining);
-      } else {
-        setTechnicalCooldown(0);
-      }
-      
-      // AI cooldown
+      // AI cooldown only
       if (card.lastAIReassess) {
         const aiElapsed = now - new Date(card.lastAIReassess).getTime();
         const aiRemaining = Math.max(0, AI_REASSESS_COOLDOWN - aiElapsed);
@@ -109,118 +96,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
     updateCooldowns();
     const interval = setInterval(updateCooldowns, 1000);
     return () => clearInterval(interval);
-  }, [card.lastTechnicalReassess, card.lastAIReassess]);
-
-  // Auto technical reassessment every 10 minutes (only for cards without position)
-  useEffect(() => {
-    if (position) return; // Skip if position is taken
-    
-    const checkAutoReassess = () => {
-      const now = Date.now();
-      const lastReassess = card.lastTechnicalReassess 
-        ? new Date(card.lastTechnicalReassess).getTime() 
-        : 0;
-      
-      if (now - lastReassess >= TECHNICAL_REASSESS_INTERVAL) {
-        runTechnicalReassessment();
-      }
-    };
-    
-    // Check immediately on mount
-    checkAutoReassess();
-    
-    // Then check every minute
-    const interval = setInterval(checkAutoReassess, 60 * 1000);
-    return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position, card.id]);
-
-  // Technical Reassessment - Updates levels based on current price action
-  const runTechnicalReassessment = useCallback(async () => {
-    if (!currentPrice) return;
-    
-    setIsReassessing(true);
-    setReassessmentResult(null);
-    
-    try {
-      // Fetch fresh kline data - MUST include type=klines
-      const interval = card.timeframe === '4H' ? '4h' : card.timeframe.toLowerCase();
-      const response = await fetch(`/api/market?symbol=${symbol}&type=klines&interval=${interval}&limit=50`);
-      const candles = await response.json();
-      
-      // Check if we got valid candle data (array of objects)
-      if (!Array.isArray(candles) || candles.length === 0) {
-        throw new Error('No candle data received');
-      }
-      
-      // Calculate key technical levels from candles
-      const highs = candles.map((c: any) => c.high);
-      const lows = candles.map((c: any) => c.low);
-      const closes = candles.map((c: any) => c.close);
-      
-      const high24h = Math.max(...highs.slice(-24));
-      const low24h = Math.min(...lows.slice(-24));
-      const range = high24h - low24h;
-      
-      // Find recent swing points
-      const resistance = Math.max(...highs.slice(-20));
-      const support = Math.min(...lows.slice(-20));
-      
-      // Calculate SMA for trend
-      const sma20 = closes.slice(-20).reduce((a: number, b: number) => a + b, 0) / 20;
-      const trend = currentPrice > sma20 ? 'bullish' : 'bearish';
-      
-      // Assess each scenario's validity
-      const validityNotes: string[] = [];
-      
-      card.scenarios.forEach(scenario => {
-        if (!scenario.entryPrice || !scenario.stopLoss || !scenario.target1) {
-          validityNotes.push(`ℹ️ ${scenario.type}: No levels defined`);
-          return;
-        }
-        
-        const entryDistance = Math.abs(currentPrice - scenario.entryPrice) / currentPrice * 100;
-        
-        // Check if stop hasn't been hit (long: price > stop, short: price < stop)
-        const isLong = scenario.entryPrice > scenario.stopLoss;
-        const stopValid = isLong 
-          ? currentPrice > scenario.stopLoss 
-          : currentPrice < scenario.stopLoss;
-        
-        // Check if entry is still reasonable (within 5% of current)
-        const entryValid = entryDistance < 5;
-        
-        // Check if target is still achievable
-        const targetDistance = Math.abs(scenario.target1 - currentPrice) / currentPrice * 100;
-        
-        if (!stopValid) {
-          validityNotes.push(`❌ ${scenario.type}: Stop $${formatPrice(scenario.stopLoss)} BREACHED`);
-        } else if (entryDistance > 10) {
-          validityNotes.push(`⚠️ ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away - consider adjusting`);
-        } else if (!entryValid) {
-          validityNotes.push(`📍 ${scenario.type}: Entry ${entryDistance.toFixed(1)}% away`);
-        } else {
-          validityNotes.push(`✅ ${scenario.type}: Valid (entry ${entryDistance.toFixed(1)}% away)`);
-        }
-      });
-      
-      // Add market context
-      validityNotes.unshift(`📊 Market: ${trend.toUpperCase()} | Range: $${formatPrice(low24h)} - $${formatPrice(high24h)}`);
-      
-      // Update card with reassessment timestamp
-      updateBattleCard(card.id, {
-        lastTechnicalReassess: new Date(),
-        reassessmentNotes: validityNotes.join('\n')
-      });
-      
-      setReassessmentResult(validityNotes.join(' | '));
-    } catch (error) {
-      console.error('Technical reassessment error:', error);
-      setReassessmentResult('❌ Failed to fetch market data');
-    } finally {
-      setIsReassessing(false);
-    }
-  }, [card.id, card.scenarios, card.timeframe, currentPrice, symbol, updateBattleCard]);
+  }, [card.lastAIReassess]);
 
   // AI Reassessment - Deep analysis with AI (calls Anthropic directly)
   const runAIReassessment = useCallback(async () => {
@@ -435,32 +311,16 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
           <div className="mt-4 p-3 rounded-xl border border-border/50 bg-background-secondary/30">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-accent" />
+                <Brain className="w-4 h-4 text-purple-400" />
                 <span className="text-sm font-medium text-foreground">Setup Validation</span>
-                {card.lastTechnicalReassess && (
+                {card.lastAIReassess && (
                   <span className="text-xs text-foreground-muted">
-                    Last check: {timeAgo(new Date(card.lastTechnicalReassess))}
+                    Last: {timeAgo(new Date(card.lastAIReassess))}
                   </span>
                 )}
               </div>
               
               <div className="flex items-center gap-2">
-                {/* Technical Reassess Button */}
-                <button
-                  onClick={runTechnicalReassessment}
-                  disabled={isReassessing || technicalCooldown > 0}
-                  className={cn(
-                    'btn btn-xs flex items-center gap-1.5',
-                    technicalCooldown > 0 
-                      ? 'btn-secondary opacity-60' 
-                      : 'bg-accent/20 text-accent hover:bg-accent/30'
-                  )}
-                  title={technicalCooldown > 0 ? `Available in ${formatCooldown(technicalCooldown)}` : 'Re-check technical levels'}
-                >
-                  <RefreshCw className={cn('w-3.5 h-3.5', isReassessing && 'animate-spin')} />
-                  {isReassessing ? 'Checking...' : technicalCooldown > 0 ? formatCooldown(technicalCooldown) : 'Technical'}
-                </button>
-                
                 {/* AI Reassess Button */}
                 <button
                   onClick={runAIReassessment}
@@ -471,10 +331,10 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                       ? 'btn-secondary opacity-60' 
                       : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
                   )}
-                  title={aiCooldown > 0 ? `Available in ${formatCooldown(aiCooldown)}` : 'AI-powered deep analysis (15min cooldown)'}
+                  title={aiCooldown > 0 ? `Available in ${formatCooldown(aiCooldown)}` : 'AI-powered analysis (15min cooldown)'}
                 >
                   <Brain className={cn('w-3.5 h-3.5', isAIReassessing && 'animate-pulse')} />
-                  {isAIReassessing ? 'Analyzing...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'AI Analysis'}
+                  {isAIReassessing ? 'Analyzing...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'AI Reassess'}
                 </button>
               </div>
             </div>
