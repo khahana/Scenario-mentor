@@ -294,7 +294,7 @@ export function Dashboard() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 md:gap-4 overflow-hidden">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 md:gap-4 w-full max-w-full">
               {activeCards.map((card) => (
                 <LiveBattleCard 
                   key={card.id} 

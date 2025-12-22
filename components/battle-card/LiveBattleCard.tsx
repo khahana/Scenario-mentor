@@ -224,10 +224,10 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   return (
     <div 
       className={cn(
-        'rounded-xl border-2 transition-all duration-300 p-3 md:p-4 overflow-hidden w-full max-w-full',
+        'rounded-xl border-2 transition-all duration-300 p-3 md:p-4 w-full max-w-full box-border',
         getStatusColor()
       )}
-      style={{ backgroundColor: '#080810' }}
+      style={{ backgroundColor: '#080810', overflowWrap: 'break-word', wordBreak: 'break-word' }}
     >
       {/* Header */}
       <div className="overflow-hidden">
@@ -602,9 +602,9 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
           
           {/* Secondary Scenarios (C & D) - Compact Row */}
           {triggerStatuses.some(({ scenario }) => scenario.type === 'C' || scenario.type === 'D') && (
-            <div className="px-3 md:px-4 pb-3 overflow-hidden">
-              <div className="flex items-center gap-2 p-2 bg-background-tertiary/50 rounded-lg overflow-x-auto">
-                <span className="text-[10px] md:text-xs text-foreground-muted flex-shrink-0">Alt:</span>
+            <div className="px-3 md:px-4 pb-3">
+              <div className="flex flex-wrap items-center gap-1.5 p-2 bg-background-tertiary/50 rounded-lg">
+                <span className="text-[10px] md:text-xs text-foreground-muted">Alt:</span>
                 {triggerStatuses
                   .filter(({ scenario }) => scenario.type === 'C' || scenario.type === 'D')
                   .map(({ scenario, status, distance }) => {
@@ -612,15 +612,14 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                     return (
                       <div 
                         key={scenario.type}
-                        className="flex items-center gap-1.5 md:gap-2 px-2 py-1 md:py-1.5 rounded-md bg-background-tertiary flex-shrink-0"
-                        style={{ borderLeft: `3px solid ${color}` }}
+                        className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-background-tertiary"
+                        style={{ borderLeft: `2px solid ${color}` }}
                       >
-                        <span className="text-[10px] md:text-xs font-bold" style={{ color }}>{scenario.type}</span>
-                        <span className="text-[10px] md:text-xs text-foreground-secondary max-w-[80px] md:max-w-none truncate">{scenario.name}</span>
-                        <span className="text-[10px] md:text-xs text-foreground-muted">{scenario.probability}%</span>
+                        <span className="text-[9px] md:text-xs font-bold" style={{ color }}>{scenario.type}</span>
+                        <span className="text-[9px] md:text-xs text-foreground-secondary">{scenario.probability}%</span>
                         {status !== 'far' && (
                           <span className={cn(
-                            'text-[9px] md:text-[10px] px-1 py-0.5 rounded',
+                            'text-[8px] md:text-[10px] px-1 rounded',
                             status === 'at_trigger' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
                           )}>
                             {distance.toFixed(1)}%
@@ -896,15 +895,15 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
         </div>
       ) : scenario.entryPrice ? (
         <div className="space-y-2 md:space-y-3">
-          {/* Professional Trade Levels Grid - Horizontal row on mobile */}
-          <div className="flex gap-1.5 md:gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+          {/* Professional Trade Levels Grid - Equal width on mobile */}
+          <div className="grid grid-cols-3 gap-1 md:gap-2">
             {/* Take Profit */}
-            <div className="relative overflow-hidden rounded-lg bg-success/5 border border-success/20 p-1.5 md:p-2 flex-1 min-w-[70px] md:min-w-[90px]">
-              <div className="absolute top-0 left-0 w-1 h-full bg-success" />
-              <p className="text-[8px] md:text-[10px] text-success/70 font-semibold uppercase tracking-wider mb-0.5">TP</p>
-              <p className="text-[11px] md:text-sm font-mono font-bold text-success">${formatPrice(scenario.target1 || 0)}</p>
+            <div className="relative overflow-hidden rounded-lg bg-success/5 border border-success/20 p-1 md:p-2">
+              <div className="absolute top-0 left-0 w-0.5 md:w-1 h-full bg-success" />
+              <p className="text-[7px] md:text-[10px] text-success/70 font-semibold uppercase mb-0.5 pl-1">TP</p>
+              <p className="text-[10px] md:text-sm font-mono font-bold text-success pl-1 truncate">${formatPrice(scenario.target1 || 0)}</p>
               {scenario.target1 && (
-                <p className="text-[8px] md:text-[10px] font-mono text-success/60">
+                <p className="text-[7px] md:text-[10px] font-mono text-success/60 pl-1">
                   +{((scenario.target1 - scenario.entryPrice) / scenario.entryPrice * 100).toFixed(1)}%
                 </p>
               )}
@@ -912,35 +911,35 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
             
             {/* Entry Price */}
             <div className={cn(
-              "relative overflow-hidden rounded-lg p-1.5 md:p-2 border flex-1 min-w-[70px] md:min-w-[90px]",
+              "relative overflow-hidden rounded-lg p-1 md:p-2 border",
               status === 'at_trigger' 
                 ? 'bg-accent/10 border-accent/40' 
                 : 'bg-foreground-muted/5 border-border/30'
             )}>
               <div className={cn(
-                "absolute top-0 left-0 w-1 h-full",
+                "absolute top-0 left-0 w-0.5 md:w-1 h-full",
                 status === 'at_trigger' ? 'bg-accent animate-pulse' : 'bg-foreground-muted/30'
               )} />
               <p className={cn(
-                "text-[8px] md:text-[10px] font-semibold uppercase tracking-wider mb-0.5",
+                "text-[7px] md:text-[10px] font-semibold uppercase mb-0.5 pl-1",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground-muted'
               )}>Entry</p>
               <p className={cn(
-                "text-[11px] md:text-sm font-mono font-bold",
+                "text-[10px] md:text-sm font-mono font-bold pl-1 truncate",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground'
               )}>
                 ${formatPrice(scenario.entryPrice)}
               </p>
-              <p className="text-[7px] md:text-[9px] text-foreground-muted/60">±0.1%</p>
+              <p className="text-[6px] md:text-[9px] text-foreground-muted/60 pl-1">±0.1%</p>
             </div>
             
             {/* Stop Loss */}
-            <div className="relative overflow-hidden rounded-lg bg-danger/5 border border-danger/20 p-1.5 md:p-2 flex-1 min-w-[70px] md:min-w-[90px]">
-              <div className="absolute top-0 left-0 w-1 h-full bg-danger" />
-              <p className="text-[8px] md:text-[10px] text-danger/70 font-semibold uppercase tracking-wider mb-0.5">SL</p>
-              <p className="text-[11px] md:text-sm font-mono font-bold text-danger">${formatPrice(scenario.stopLoss || 0)}</p>
+            <div className="relative overflow-hidden rounded-lg bg-danger/5 border border-danger/20 p-1 md:p-2">
+              <div className="absolute top-0 left-0 w-0.5 md:w-1 h-full bg-danger" />
+              <p className="text-[7px] md:text-[10px] text-danger/70 font-semibold uppercase mb-0.5 pl-1">SL</p>
+              <p className="text-[10px] md:text-sm font-mono font-bold text-danger pl-1 truncate">${formatPrice(scenario.stopLoss || 0)}</p>
               {scenario.stopLoss && (
-                <p className="text-[8px] md:text-[10px] font-mono text-danger/60">
+                <p className="text-[7px] md:text-[10px] font-mono text-danger/60 pl-1">
                   {((scenario.stopLoss - scenario.entryPrice) / scenario.entryPrice * 100).toFixed(1)}%
                 </p>
               )}

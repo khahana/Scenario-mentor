@@ -17,7 +17,7 @@ import {
   MessageCircle,
   AlertTriangle
 } from 'lucide-react';
-import { useAIMentorStore, useBattleCardStore, useMarketDataStore } from '@/lib/stores';
+import { useAIMentorStore, useBattleCardStore, useMarketDataStore, useScannerStore } from '@/lib/stores';
 import { usePaperTradingStore, JournalEntry } from '@/lib/stores/paperTradingStore';
 import { cn, generateId, copyToClipboard, formatPrice } from '@/lib/utils/helpers';
 import type { AIMode, AIMessage } from '@/types';
@@ -78,11 +78,7 @@ Analyze past trades for patterns. Focus on lessons learned and areas for improve
   return modePrompts[mode] || basePrompt;
 };
 
-interface FloatingAIMentorProps {
-  scannerData?: any[];
-}
-
-export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
+export function FloatingAIMentor() {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [input, setInput] = useState('');
@@ -92,6 +88,10 @@ export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
   const battleCards = useBattleCardStore(state => state.battleCards);
   const prices = useMarketDataStore(state => state.prices);
   const watchlist = useMarketDataStore(state => state.watchlist);
+  
+  // Scanner data from global store
+  const scannerResults = useScannerStore(state => state.results);
+  const scannerLastUpdated = useScannerStore(state => state.lastUpdated);
   
   // Paper trading data
   const positions = usePaperTradingStore(state => state.positions);
@@ -205,14 +205,46 @@ export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
       }
     });
     
-    // SCANNER DATA if provided
-    if (scannerData && scannerData.length > 0) {
-      context += '\n\n## SCANNER TOP PICKS:\n';
-      scannerData.slice(0, 5).forEach(r => {
-        context += `${r.symbol}: Score ${r.score} | ${r.setupType} ${r.direction}`;
-        if (r.fundingRate !== undefined) context += ` | Funding: ${(r.fundingRate * 100).toFixed(4)}%`;
-        context += '\n';
+    // SCANNER RESULTS from global store
+    if (scannerResults && scannerResults.length > 0) {
+      context += '\n\n## SCANNER RESULTS (Top 10 by score):\n';
+      context += `Last scan: ${scannerLastUpdated ? new Date(scannerLastUpdated).toLocaleTimeString() : 'N/A'}\n`;
+      
+      scannerResults.slice(0, 10).forEach((r, i) => {
+        context += `\n${i + 1}. ${r.symbol} - Score: ${r.score}/100`;
+        context += `\n   Price: $${formatPrice(r.price)} (${r.change24h >= 0 ? '+' : ''}${r.change24h.toFixed(2)}%)`;
+        context += `\n   Setup: ${r.setupType.toUpperCase()} | Direction: ${r.direction.toUpperCase()}`;
+        context += `\n   Volatility: ${r.volatility}`;
+        
+        if (r.fundingRate !== undefined) {
+          context += `\n   Funding Rate: ${(r.fundingRate * 100).toFixed(4)}%`;
+        }
+        if (r.openInterest !== undefined) {
+          const oiFormatted = r.openInterest >= 1e9 
+            ? `$${(r.openInterest / 1e9).toFixed(2)}B`
+            : r.openInterest >= 1e6 
+            ? `$${(r.openInterest / 1e6).toFixed(1)}M`
+            : `$${(r.openInterest / 1e3).toFixed(0)}K`;
+          context += `\n   Open Interest: ${oiFormatted}`;
+          if (r.oiChange24h !== undefined) {
+            context += ` (${r.oiChange24h >= 0 ? '+' : ''}${r.oiChange24h.toFixed(1)}% 24h)`;
+          }
+        }
+        
+        // Key signals
+        if (r.signals && r.signals.length > 0) {
+          const topSignals = r.signals.slice(0, 3);
+          context += `\n   Signals: ${topSignals.map(s => s.name).join(', ')}`;
+        }
+        
+        context += `\n   Levels: Support $${formatPrice(r.keyLevels.support)} | Resistance $${formatPrice(r.keyLevels.resistance)}`;
       });
+      
+      // Summary stats
+      const hotSetups = scannerResults.filter(r => r.score >= 70);
+      const bullish = scannerResults.filter(r => r.direction === 'long');
+      const bearish = scannerResults.filter(r => r.direction === 'short');
+      context += `\n\nScanner Summary: ${scannerResults.length} assets | ${hotSetups.length} hot (70+) | ${bullish.length} bullish | ${bearish.length} bearish`;
     }
     
     return context;
@@ -315,6 +347,10 @@ export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
       actions.push({ label: '🎯 Review setups', query: 'Review my active battle cards. Which setups look best right now?' });
     }
     
+    if (scannerResults.length > 0) {
+      actions.push({ label: '🔥 Scanner picks', query: 'What are the best opportunities from the scanner? Which assets have the highest scores and why?' });
+    }
+    
     if (journal.length >= 5) {
       actions.push({ label: '📈 My patterns', query: 'Analyze my recent trades. What patterns do you see? What should I improve?' });
     }
@@ -370,7 +406,7 @@ export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
           <div>
             <h3 className="font-semibold text-sm text-foreground">AI Mentor</h3>
             <p className="text-[10px] text-foreground-muted">
-              {openPositions.length} positions • {activeCards.length} setups • {journal.length} journal
+              {openPositions.length} pos • {activeCards.length} setups • {scannerResults.length} scanned • {journal.length} trades
             </p>
           </div>
         </div>
@@ -426,7 +462,7 @@ export function FloatingAIMentor({ scannerData }: FloatingAIMentorProps) {
           <div className="text-center py-6">
             <Brain className="w-12 h-12 mx-auto mb-3 text-foreground-muted opacity-50" />
             <p className="text-sm text-foreground-muted mb-4">
-              I can see your battle cards, positions, and journal. Ask me anything!
+              I can see your battle cards, positions, scanner results, and journal. Ask me anything!
             </p>
             
             {/* Quick Actions */}

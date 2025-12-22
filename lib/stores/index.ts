@@ -409,3 +409,54 @@ export const useAlertsStore = create<AlertsState>((set) => ({
   
   clearAlerts: () => set({ alerts: [] }),
 }));
+
+// ============ SCANNER STORE ============
+
+export interface ScannerResult {
+  symbol: string;
+  price: number;
+  change24h: number;
+  score: number;
+  signals: Array<{
+    type: 'bullish' | 'bearish' | 'neutral';
+    name: string;
+    description: string;
+    weight: number;
+  }>;
+  setupType: 'breakout' | 'reversal' | 'continuation' | 'range' | 'none';
+  direction: 'long' | 'short' | 'neutral';
+  keyLevels: {
+    support: number;
+    resistance: number;
+  };
+  volatility: 'low' | 'medium' | 'high';
+  fundingRate?: number;
+  openInterest?: number;
+  oiChange24h?: number;
+}
+
+interface ScannerState {
+  results: ScannerResult[];
+  lastUpdated: Date | null;
+  isScanning: boolean;
+  
+  setResults: (results: ScannerResult[]) => void;
+  setScanning: (scanning: boolean) => void;
+  clearResults: () => void;
+}
+
+export const useScannerStore = create<ScannerState>((set) => ({
+  results: [],
+  lastUpdated: null,
+  isScanning: false,
+  
+  setResults: (results) => set({ 
+    results, 
+    lastUpdated: new Date(),
+    isScanning: false 
+  }),
+  
+  setScanning: (scanning) => set({ isScanning: scanning }),
+  
+  clearResults: () => set({ results: [], lastUpdated: null }),
+}));

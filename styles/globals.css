@@ -38,6 +38,17 @@ body {
   color: var(--foreground);
 }
 
+/* Mobile overflow prevention */
+@media (max-width: 767px) {
+  * {
+    max-width: 100%;
+  }
+  
+  .overflow-x-auto {
+    overflow-x: hidden !important;
+  }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

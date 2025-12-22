@@ -17,7 +17,7 @@ import {
   Bell,
   X
 } from 'lucide-react';
-import { useMarketDataStore, useUIStore } from '@/lib/stores';
+import { useMarketDataStore, useUIStore, useScannerStore } from '@/lib/stores';
 import { cn, generateId, formatPrice } from '@/lib/utils/helpers';
 
 // Scanner result for each asset
@@ -412,6 +412,9 @@ export function MarketScanner() {
   const watchlist = useMarketDataStore(state => state.watchlist);
   const setActiveView = useUIStore(state => state.setActiveView);
   
+  // Global scanner store for AI Mentor access
+  const setScannerResults = useScannerStore(state => state.setResults);
+  
   // Request browser notification permission on mount
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -619,6 +622,23 @@ export function MarketScanner() {
       previousHotSetupsRef.current = newHotSet;
       
       setScanResults(results);
+      
+      // Update global store for AI Mentor access
+      setScannerResults(results.map(r => ({
+        symbol: r.symbol,
+        price: r.price,
+        change24h: r.change24h,
+        score: r.score,
+        signals: r.signals,
+        setupType: r.setupType,
+        direction: r.direction,
+        keyLevels: r.keyLevels,
+        volatility: r.volatility,
+        fundingRate: r.fundingRate,
+        openInterest: r.openInterest,
+        oiChange24h: r.oiChange24h
+      })));
+      
       setLastScan(new Date());
       setHasInitialScan(true);
     } catch (error) {

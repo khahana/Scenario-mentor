@@ -65,19 +65,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex overflow-x-hidden">
+    <div className="min-h-screen bg-background flex overflow-x-hidden w-full max-w-[100vw]">
       {/* Desktop Sidebar - hidden on mobile */}
       <div className="hidden md:block">
         <Sidebar />
       </div>
       
       {/* Main Content */}
-      <div className="flex-1 md:ml-64 min-w-0 overflow-x-hidden">
+      <div className="flex-1 md:ml-64 min-w-0 overflow-x-hidden w-full max-w-full">
         {/* Top Bar */}
         <TopBar isConnected={isConnected} />
         
         {/* Page Content - extra bottom padding on mobile for nav */}
-        <main className="p-3 md:p-6 pt-16 md:pt-20 pb-20 md:pb-6">
+        <main className="p-3 md:p-6 pt-16 md:pt-20 pb-20 md:pb-6 w-full max-w-full overflow-x-hidden">
           {renderContent()}
         </main>
       </div>
