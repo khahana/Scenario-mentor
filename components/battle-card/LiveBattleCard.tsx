@@ -391,7 +391,11 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             
             {/* Show stored notes if available and no fresh result */}
             {!reassessmentResult && card.reassessmentNotes && (
-              <div className="mt-2 p-2 rounded-lg bg-background-tertiary/50 text-[10px] md:text-xs text-foreground-secondary">
+              <div className="mt-2 p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-[10px] md:text-xs text-foreground-secondary">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Brain className="w-3 h-3 text-purple-400" />
+                  <span className="text-purple-400 font-medium">Previous Analysis</span>
+                </div>
                 <p className="leading-relaxed whitespace-pre-wrap">{card.reassessmentNotes}</p>
               </div>
             )}

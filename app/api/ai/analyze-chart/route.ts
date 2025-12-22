@@ -311,7 +311,8 @@ export async function POST(request: NextRequest) {
       direction = 'auto', 
       currentPrice,
       klineData, // Optional: kline data for better analysis
-      apiKey // Client sends the API key
+      apiKey, // Client sends the API key
+      userThesis // Optional: user-provided thesis to build battle card from
     } = body;
 
     // Format instrument for display
@@ -351,7 +352,33 @@ export async function POST(request: NextRequest) {
     const anthropicKey = apiKey;
 
     // Build the analysis prompt
-    const userPrompt = `Analyze this trading setup and generate a complete Battle Card:
+    const userPrompt = userThesis 
+      ? `Create a Battle Card based on the trader's thesis:
+
+TRADER'S THESIS:
+"${userThesis}"
+
+MARKET DATA:
+- Instrument: ${symbol}
+- Timeframe: ${timeframe || '4H'}
+- Current Price: $${price.toLocaleString()}
+- Direction Bias: ${direction === 'auto' ? 'Determine from thesis' : direction.toUpperCase()}
+- Analysis Time: ${new Date().toISOString()}
+
+BUILD A COMPLETE Battle Card that:
+1. Uses the trader's thesis as the PRIMARY Scenario A
+2. Generate full SPIN Analysis supporting this thesis
+3. Create Scenario B as a reasonable alternative/contrary view
+4. Add Scenario C (Chaos/chop) and D (Complete Invalidation)
+5. Calculate specific entry/stop/target levels based on current price ($${price.toLocaleString()})
+6. Challenge the thesis - give honest Challenger Score (1-10)
+
+Important:
+- Scenario A should reflect the trader's idea with proper levels
+- Be honest in contradiction/challenger - point out potential weaknesses
+- Use realistic price levels relative to current price
+- Provide clear trigger conditions`
+      : `Analyze this trading setup and generate a complete Battle Card:
 
 MARKET DATA:
 - Instrument: ${symbol}
