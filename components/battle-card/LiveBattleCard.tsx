@@ -53,10 +53,12 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   const { getCardTriggerStatus, getClosestScenario } = usePriceMonitor();
   
   // Paper trading
+  const openPosition = usePaperTradingStore(state => state.openPosition);
   const getOpenPosition = usePaperTradingStore(state => state.getOpenPosition);
   const closePosition = usePaperTradingStore(state => state.closePosition);
   const calculateLivePnl = usePaperTradingStore(state => state.calculateLivePnl);
   const updatePosition = usePaperTradingStore(state => state.updatePosition);
+  const settings = usePaperTradingStore(state => state.settings);
 
   const symbol = card.instrument.replace('/USDT', 'USDT').replace('/', '');
   const currentPrice = prices[symbol]?.price;
@@ -219,6 +221,36 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
       s.type === scenarioType ? { ...s, ...updates } : s
     );
     updateBattleCard(card.id, { scenarios: updatedScenarios });
+  };
+
+  // Manual position entry at market price
+  const handleTakePosition = (scenario: Scenario) => {
+    if (!currentPrice || !scenario.stopLoss || !scenario.target1 || position) return;
+    
+    const direction = scenario.entryPrice && scenario.stopLoss
+      ? (scenario.entryPrice > scenario.stopLoss ? 'long' : 'short')
+      : 'long';
+    
+    openPosition({
+      battleCardId: card.id,
+      scenarioType: scenario.type as 'A' | 'B' | 'C' | 'D',
+      scenarioName: `${scenario.name} (Manual Entry)`,
+      instrument: card.instrument,
+      timeframe: card.timeframe,
+      direction,
+      thesis: `${card.thesis || scenario.description || ''} [Manual entry at market price: $${formatPrice(currentPrice)}]`,
+      leverage: settings.leverage,
+      entryPrice: currentPrice,
+      openedAt: new Date(),
+      size: settings.defaultSize,
+      stopLoss: scenario.stopLoss,
+      target1: scenario.target1,
+      target2: scenario.target2 ?? undefined,
+      target3: scenario.target3 ?? undefined,
+    });
+    
+    // Update card status to active
+    updateBattleCard(card.id, { status: 'active' });
   };
 
   return (
@@ -596,6 +628,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                   isActiveScenario={position?.scenarioType === scenario.type}
                   canEdit={!position}
                   onUpdateScenario={handleUpdateScenario}
+                  onTakePosition={!position ? handleTakePosition : undefined}
                 />
               ))}
           </div>
@@ -734,9 +767,10 @@ interface ScenarioStatusCardProps {
   isActiveScenario?: boolean;
   canEdit?: boolean;
   onUpdateScenario?: (scenarioType: string, updates: { entryPrice?: number; target1?: number; stopLoss?: number }) => void;
+  onTakePosition?: (scenario: Scenario) => void;
 }
 
-function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActiveScenario, canEdit, onUpdateScenario }: ScenarioStatusCardProps) {
+function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActiveScenario, canEdit, onUpdateScenario, onTakePosition }: ScenarioStatusCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editEntry, setEditEntry] = useState('');
   const [editTarget, setEditTarget] = useState('');
@@ -1009,6 +1043,17 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
               {distance < 100 ? `${distance.toFixed(1)}% away` : '—'}
             </div>
           </div>
+          
+          {/* Take Position Button - Manual Entry */}
+          {onTakePosition && !isActiveScenario && scenario.entryPrice && scenario.stopLoss && scenario.target1 && (
+            <button
+              onClick={() => onTakePosition(scenario)}
+              className="mt-2 w-full btn btn-sm bg-accent/20 text-accent hover:bg-accent/30 border border-accent/30"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Take Position at Market
+            </button>
+          )}
         </div>
       ) : (
         <p className="text-sm text-foreground-muted italic">No trade levels set</p>

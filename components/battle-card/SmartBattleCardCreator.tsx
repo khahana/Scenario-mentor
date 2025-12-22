@@ -88,7 +88,17 @@ export function SmartBattleCardCreator() {
   const [direction, setDirection] = useState<'long' | 'short' | 'auto'>('auto');
   const [analysis, setAnalysis] = useState<ExtractedAnalysis | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
-  const [analysisMode, setAnalysisMode] = useState<'ai' | 'fallback' | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<'ai' | 'fallback' | 'manual' | null>(null);
+  
+  // Manual entry mode
+  const [creationMode, setCreationMode] = useState<'analyze' | 'manual'>('analyze');
+  const [manualThesis, setManualThesis] = useState('');
+  const [manualEntry, setManualEntry] = useState('');
+  const [manualTP, setManualTP] = useState('');
+  const [manualSL, setManualSL] = useState('');
+  const [manualDirection, setManualDirection] = useState<'long' | 'short'>('long');
+  const [aiReview, setAiReview] = useState<string | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
   
   const { saveBattleCard } = useBattleCardStore();
   const { setActiveView, prefillSymbol, setPrefillSymbol } = useUIStore();
@@ -282,39 +292,214 @@ export function SmartBattleCardCreator() {
     setAnalysis({ ...analysis, scenarios: updatedScenarios });
   };
 
+  // Review manual setup with AI
+  const reviewManualSetup = async () => {
+    if (!manualThesis || !manualEntry || !manualTP || !manualSL) return;
+    
+    const apiKey = localStorage.getItem('anthropic_api_key');
+    if (!apiKey) return;
+    
+    setIsReviewing(true);
+    setAiReview(null);
+    
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `Review this trading setup and provide constructive feedback:
+
+Instrument: ${instrument.replace('USDT', '/USDT')}
+Timeframe: ${timeframe}
+Direction: ${manualDirection.toUpperCase()}
+Current Price: $${currentPrice ? formatPrice(currentPrice) : 'Unknown'}
+
+Trader's Thesis: ${manualThesis}
+
+Planned Levels:
+- Entry: $${manualEntry}
+- Take Profit: $${manualTP}
+- Stop Loss: $${manualSL}
+- Risk/Reward: 1:${(Math.abs(parseFloat(manualTP) - parseFloat(manualEntry)) / Math.abs(parseFloat(manualEntry) - parseFloat(manualSL))).toFixed(2)}
+
+Please provide:
+1. STRENGTHS of this setup (what's good about the thesis)
+2. CONCERNS or risks to consider
+3. SUGGESTIONS for improvement (levels, timing, or thesis refinement)
+4. Overall assessment (1-10 score)
+
+Be constructive but honest. Help the trader think through potential blind spots.`
+          }],
+          systemPrompt: 'You are an experienced trading mentor reviewing a trade setup. Be constructive, specific, and educational. Focus on helping the trader improve their analysis. Keep response concise but valuable.'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAiReview(data.response);
+      }
+    } catch (error) {
+      console.error('AI review error:', error);
+      setAiReview('Unable to get AI feedback. You can still create the battle card.');
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
+  // Save manual battle card
+  const saveManualCard = () => {
+    if (!manualThesis || !manualEntry || !manualTP || !manualSL) return;
+    
+    const entryPrice = parseFloat(manualEntry);
+    const tp = parseFloat(manualTP);
+    const sl = parseFloat(manualSL);
+    
+    const cardId = generateId();
+    
+    // Create primary scenario with full properties
+    const scenario = {
+      id: generateId(),
+      battleCardId: cardId,
+      type: 'A' as ScenarioType,
+      name: `${manualDirection === 'long' ? 'Bullish' : 'Bearish'} Setup`,
+      description: manualThesis,
+      probability: 60,
+      triggerPrice: entryPrice,
+      triggerCondition: `Price reaches $${formatPrice(entryPrice)}`,
+      entryPrice: entryPrice,
+      target1: tp,
+      target2: null,
+      target3: null,
+      stopLoss: sl,
+      positionSize: null,
+      invalidationReason: null,
+      lessonPrompt: null,
+      isActive: false,
+      triggeredAt: null,
+      parentId: null,
+      children: [],
+    };
+    
+    // Create inverse scenario
+    const inverseScenario = {
+      id: generateId(),
+      battleCardId: cardId,
+      type: 'B' as ScenarioType,
+      name: `${manualDirection === 'long' ? 'Bearish' : 'Bullish'} Invalidation`,
+      description: `Setup invalidation if ${manualDirection === 'long' ? 'price breaks below' : 'price breaks above'} stop level`,
+      probability: 40,
+      triggerPrice: sl,
+      triggerCondition: `Price reaches $${formatPrice(sl)}`,
+      entryPrice: sl,
+      target1: manualDirection === 'long' 
+        ? sl - (entryPrice - sl)
+        : sl + (sl - entryPrice),
+      target2: null,
+      target3: null,
+      stopLoss: entryPrice,
+      positionSize: null,
+      invalidationReason: null,
+      lessonPrompt: null,
+      isActive: false,
+      triggeredAt: null,
+      parentId: null,
+      children: [],
+    };
+    
+    saveBattleCard({
+      id: cardId,
+      userId: 'local',
+      instrument: instrument.replace('USDT', '/USDT'),
+      timeframe,
+      chartSnapshot: null,
+      setupType: 'Manual Entry',
+      thesis: manualThesis,
+      narrative: '',
+      contradiction: '',
+      trappedParticipants: '',
+      challengerScore: 0,
+      spinAnalysis: null,
+      scenarios: [scenario, inverseScenario],
+      status: 'monitoring',
+      activeScenario: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      closedAt: null,
+    } as any);
+    
+    // Reset form
+    setManualThesis('');
+    setManualEntry('');
+    setManualTP('');
+    setManualSL('');
+    setAiReview(null);
+    
+    // Navigate to dashboard
+    setActiveView('dashboard');
+  };
+
   return (
     <div className="space-y-6 overflow-x-hidden max-w-full">
       <div>
         <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2 md:gap-3 flex-wrap">
           <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-accent" />
           Create Battle Card
-          <span className="text-xs md:text-sm font-normal bg-accent/20 text-accent px-2 py-1 rounded-full">
-            AI-Powered
-          </span>
         </h2>
         <p className="text-sm md:text-base text-foreground-secondary mt-1">
-          Select instrument → AI analyzes chart → Get complete 4-scenario setup
+          Use AI analysis or enter your own thesis manually
         </p>
       </div>
 
+      {/* Mode Selector */}
+      <div className="flex gap-2 p-1 bg-background-tertiary rounded-xl w-fit">
+        <button
+          onClick={() => { setCreationMode('analyze'); setAiReview(null); }}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2',
+            creationMode === 'analyze'
+              ? 'bg-accent text-white'
+              : 'text-foreground-secondary hover:text-foreground'
+          )}
+        >
+          <Brain className="w-4 h-4" />
+          AI Analyze
+        </button>
+        <button
+          onClick={() => { setCreationMode('manual'); setState('idle'); setAnalysis(null); }}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2',
+            creationMode === 'manual'
+              ? 'bg-accent text-white'
+              : 'text-foreground-secondary hover:text-foreground'
+          )}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Manual Entry
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
-        {/* Left Column - Chart & Controls */}
+        {/* Left Column - Chart & Controls or Manual Entry */}
         <div className="space-y-4">
-          <div className="card p-4">
-            {/* Instrument & Timeframe Selection */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="label">Instrument</label>
-                <select
-                  value={instrument}
-                  onChange={(e) => setInstrument(e.target.value)}
-                  className="input"
-                >
-                  {instruments.map(i => (
-                    <option key={i} value={i}>{i.replace('USDT', '/USDT')}</option>
-                  ))}
-                </select>
-              </div>
+          {creationMode === 'analyze' ? (
+            <>
+              <div className="card p-4">
+                {/* Instrument & Timeframe Selection */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="label">Instrument</label>
+                    <select
+                      value={instrument}
+                      onChange={(e) => setInstrument(e.target.value)}
+                      className="input"
+                    >
+                      {instruments.map(i => (
+                        <option key={i} value={i}>{i.replace('USDT', '/USDT')}</option>
+                      ))}
+                    </select>
+                  </div>
               <div>
                 <label className="label">Timeframe</label>
                 <div className="flex flex-wrap gap-1">
@@ -436,72 +621,294 @@ export function SmartBattleCardCreator() {
               </button>
             </div>
           )}
-        </div>
-
-        {/* Right Column - Analysis Results */}
-        <div className="space-y-4">
-          {state === 'idle' && (
-            <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
-              <div className={cn(
-                "w-16 h-16 rounded-2xl flex items-center justify-center mb-4",
-                hasApiKey ? "bg-accent/10" : "bg-warning/10"
-              )}>
-                {hasApiKey ? (
-                  <Sparkles className="w-8 h-8 text-accent" />
-                ) : (
-                  <BarChart2 className="w-8 h-8 text-warning" />
-                )}
+            </>
+          ) : (
+            /* Manual Entry Mode */
+            <div className="card p-4 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-5 h-5 text-accent" />
+                <h3 className="font-semibold text-foreground">Enter Your Setup</h3>
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {hasApiKey ? 'Ready for AI Analysis' : 'Ready for Technical Analysis'}
-              </h3>
-              <p className="text-foreground-secondary max-w-sm">
-                {hasApiKey 
-                  ? 'Select instrument & timeframe, then click "Analyze with AI". AI extracts complete battle card setup.'
-                  : 'Select instrument & timeframe for basic technical analysis. Add API key in Settings for AI-powered analysis.'
-                }
-              </p>
-            </div>
-          )}
-
-          {state === 'analyzing' && (
-            <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
-              <Loader2 className="w-12 h-12 text-accent animate-spin mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {hasApiKey ? 'AI Analyzing Chart...' : 'Running Technical Analysis...'}
-              </h3>
-              <p className="text-foreground-secondary">
-                {hasApiKey ? 'Extracting SPIN, thesis & scenarios' : 'Calculating support, resistance & trends'}
-              </p>
-            </div>
-          )}
-
-          {state === 'complete' && analysis && (
-            <div className="space-y-4">
-              {/* Fallback Mode Banner */}
-              {analysisMode === 'fallback' && (
-                <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-warning font-medium">Basic Technical Analysis</p>
-                    <p className="text-xs text-foreground-muted">
-                      This analysis uses calculated indicators only. Add your API key in Settings for AI-powered scenario generation.
-                    </p>
+              
+              {/* Instrument & Timeframe */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Instrument</label>
+                  <select
+                    value={instrument}
+                    onChange={(e) => setInstrument(e.target.value)}
+                    className="input"
+                  >
+                    {instruments.map(i => (
+                      <option key={i} value={i}>{i.replace('USDT', '/USDT')}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Timeframe</label>
+                  <select
+                    value={timeframe}
+                    onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+                    className="input"
+                  >
+                    {TIMEFRAMES.map(tf => (
+                      <option key={tf.value} value={tf.value}>{tf.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Direction */}
+              <div>
+                <label className="label">Direction</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setManualDirection('long')}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2',
+                      manualDirection === 'long'
+                        ? 'bg-success/20 text-success border border-success'
+                        : 'bg-background-tertiary text-foreground-secondary hover:text-foreground'
+                    )}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Long
+                  </button>
+                  <button
+                    onClick={() => setManualDirection('short')}
+                    className={cn(
+                      'flex-1 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2',
+                      manualDirection === 'short'
+                        ? 'bg-danger/20 text-danger border border-danger'
+                        : 'bg-background-tertiary text-foreground-secondary hover:text-foreground'
+                    )}
+                  >
+                    <TrendingDown className="w-4 h-4" />
+                    Short
+                  </button>
+                </div>
+              </div>
+              
+              {/* Thesis */}
+              <div>
+                <label className="label">Your Thesis</label>
+                <textarea
+                  value={manualThesis}
+                  onChange={(e) => setManualThesis(e.target.value)}
+                  placeholder="What's your trade idea? e.g., 'BTC showing bullish divergence on RSI, expecting bounce from support at 88K'"
+                  className="input min-h-[100px] resize-none"
+                />
+              </div>
+              
+              {/* Price Levels */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="label text-foreground-muted">Entry Price</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={manualEntry}
+                    onChange={(e) => setManualEntry(e.target.value)}
+                    placeholder={currentPrice ? formatPrice(currentPrice) : '0'}
+                    className="input font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="label text-success">Take Profit</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={manualTP}
+                    onChange={(e) => setManualTP(e.target.value)}
+                    placeholder="Target"
+                    className="input font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="label text-danger">Stop Loss</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={manualSL}
+                    onChange={(e) => setManualSL(e.target.value)}
+                    placeholder="Stop"
+                    className="input font-mono"
+                  />
+                </div>
+              </div>
+              
+              {/* Current Price Reference */}
+              {currentPrice && (
+                <p className="text-xs text-foreground-muted">
+                  Current price: <span className="font-mono font-medium text-foreground">${formatPrice(currentPrice)}</span>
+                </p>
+              )}
+              
+              {/* R:R Preview */}
+              {manualEntry && manualTP && manualSL && (
+                <div className="p-3 rounded-lg bg-background-tertiary">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-foreground-muted">Risk/Reward:</span>
+                    <span className="font-mono font-bold text-accent">
+                      1:{(Math.abs(parseFloat(manualTP) - parseFloat(manualEntry)) / Math.abs(parseFloat(manualEntry) - parseFloat(manualSL))).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-1">
+                    <span className="text-foreground-muted">Risk:</span>
+                    <span className="font-mono text-danger">
+                      {(Math.abs(parseFloat(manualEntry) - parseFloat(manualSL)) / parseFloat(manualEntry) * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mt-1">
+                    <span className="text-foreground-muted">Reward:</span>
+                    <span className="font-mono text-success">
+                      {(Math.abs(parseFloat(manualTP) - parseFloat(manualEntry)) / parseFloat(manualEntry) * 100).toFixed(2)}%
+                    </span>
                   </div>
                 </div>
               )}
               
-              {/* Quick Stats */}
-              <div className="card p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="badge bg-accent/20 text-accent">{analysis.setupType}</span>
-                    <p className="text-foreground mt-1 font-medium">{analysis.thesis}</p>
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                {hasApiKey && (
+                  <button
+                    onClick={reviewManualSetup}
+                    disabled={!manualThesis || !manualEntry || !manualTP || !manualSL || isReviewing}
+                    className="flex-1 btn btn-secondary"
+                  >
+                    {isReviewing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        AI Reviewing...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="w-4 h-4" />
+                        Get AI Feedback
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={saveManualCard}
+                  disabled={!manualThesis || !manualEntry || !manualTP || !manualSL}
+                  className="flex-1 btn btn-primary"
+                >
+                  <Check className="w-4 h-4" />
+                  Create Battle Card
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column - Analysis Results or Manual Review */}
+        <div className="space-y-4">
+          {/* Manual Mode - Show AI Review or Instructions */}
+          {creationMode === 'manual' ? (
+            <div className="card p-6 min-h-[500px]">
+              {aiReview ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-accent" />
+                    <h3 className="font-semibold text-foreground">AI Feedback</h3>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm text-foreground-muted">Challenger</div>
-                    <div className="text-2xl font-bold text-accent">{analysis.challengerScore}/10</div>
+                  <div className="p-4 rounded-lg bg-background-tertiary border border-border">
+                    <p className="text-sm text-foreground-secondary whitespace-pre-wrap leading-relaxed">
+                      {aiReview}
+                    </p>
                   </div>
+                  <p className="text-xs text-foreground-muted">
+                    Consider this feedback, then click "Create Battle Card" when ready.
+                  </p>
+                </div>
+              ) : isReviewing ? (
+                <div className="h-full flex flex-col items-center justify-center">
+                  <Loader2 className="w-12 h-12 text-accent animate-spin mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">AI Reviewing Your Setup...</h3>
+                  <p className="text-foreground-secondary">Getting feedback on your thesis and levels</p>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+                    <MessageSquare className="w-8 h-8 text-accent" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Manual Setup Mode</h3>
+                  <p className="text-foreground-secondary max-w-sm mb-4">
+                    Enter your own trading thesis with entry, take profit, and stop loss levels.
+                  </p>
+                  {hasApiKey && (
+                    <p className="text-sm text-accent">
+                      💡 Click "Get AI Feedback" to have AI review your setup before creating the card.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {state === 'idle' && (
+                <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
+                  <div className={cn(
+                    "w-16 h-16 rounded-2xl flex items-center justify-center mb-4",
+                    hasApiKey ? "bg-accent/10" : "bg-warning/10"
+                  )}>
+                    {hasApiKey ? (
+                      <Sparkles className="w-8 h-8 text-accent" />
+                    ) : (
+                      <BarChart2 className="w-8 h-8 text-warning" />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    {hasApiKey ? 'Ready for AI Analysis' : 'Ready for Technical Analysis'}
+                  </h3>
+                  <p className="text-foreground-secondary max-w-sm">
+                    {hasApiKey 
+                      ? 'Select instrument & timeframe, then click "Analyze with AI". AI extracts complete battle card setup.'
+                      : 'Select instrument & timeframe for basic technical analysis. Add API key in Settings for AI-powered analysis.'
+                    }
+                  </p>
+                </div>
+              )}
+
+              {state === 'analyzing' && (
+                <div className="card p-8 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
+                  <Loader2 className="w-12 h-12 text-accent animate-spin mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    {hasApiKey ? 'AI Analyzing Chart...' : 'Running Technical Analysis...'}
+                  </h3>
+                  <p className="text-foreground-secondary">
+                    {hasApiKey ? 'Extracting SPIN, thesis & scenarios' : 'Calculating support, resistance & trends'}
+                  </p>
+                </div>
+              )}
+
+              {state === 'complete' && analysis && (
+                <div className="space-y-4">
+                  {/* Fallback Mode Banner */}
+                  {analysisMode === 'fallback' && (
+                    <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
+                      <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-warning font-medium">Basic Technical Analysis</p>
+                        <p className="text-xs text-foreground-muted">
+                          This analysis uses calculated indicators only. Add your API key in Settings for AI-powered scenario generation.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Quick Stats */}
+                  <div className="card p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="badge bg-accent/20 text-accent">{analysis.setupType}</span>
+                        <p className="text-foreground mt-1 font-medium">{analysis.thesis}</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-foreground-muted">Challenger</div>
+                        <div className="text-2xl font-bold text-accent">{analysis.challengerScore}/10</div>
+                      </div>
                 </div>
               </div>
 
@@ -610,6 +1017,8 @@ export function SmartBattleCardCreator() {
                 </button>
               </div>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>

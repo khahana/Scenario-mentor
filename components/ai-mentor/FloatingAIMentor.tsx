@@ -114,8 +114,12 @@ export function FloatingAIMentor() {
   }, [messages]);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
+    if (isOpen) {
+      // Scroll to bottom when chat opens
+      setTimeout(scrollToBottom, 100);
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   }, [isOpen]);
 
@@ -504,18 +508,29 @@ export function FloatingAIMentor() {
                 )}
               >
                 <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                {msg.role === 'assistant' && (
-                  <button
-                    onClick={() => handleCopy(msg.content, msg.id)}
-                    className="mt-1 text-[10px] text-foreground-muted hover:text-foreground flex items-center gap-1"
-                  >
-                    {copiedId === msg.id ? (
-                      <><Check className="w-3 h-3" /> Copied</>
-                    ) : (
-                      <><Copy className="w-3 h-3" /> Copy</>
-                    )}
-                  </button>
-                )}
+                <div className={cn(
+                  'flex items-center gap-2 mt-1',
+                  msg.role === 'user' ? 'justify-end' : 'justify-start'
+                )}>
+                  <span className={cn(
+                    'text-[9px]',
+                    msg.role === 'user' ? 'text-white/60' : 'text-foreground-muted'
+                  )}>
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {msg.role === 'assistant' && (
+                    <button
+                      onClick={() => handleCopy(msg.content, msg.id)}
+                      className="text-[9px] text-foreground-muted hover:text-foreground flex items-center gap-0.5"
+                    >
+                      {copiedId === msg.id ? (
+                        <><Check className="w-2.5 h-2.5" /> Copied</>
+                      ) : (
+                        <><Copy className="w-2.5 h-2.5" /> Copy</>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
               {msg.role === 'user' && (
                 <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
