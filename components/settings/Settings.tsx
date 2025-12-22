@@ -188,9 +188,9 @@ export function Settings({ onClose }: SettingsProps) {
   return (
     <>
       <div className="modal-overlay" onClick={onClose} />
-      <div className="modal-content w-full max-w-lg">
+      <div className="fixed inset-0 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 bg-background-secondary border-t md:border border-border md:rounded-2xl shadow-2xl z-50 w-full md:max-w-lg md:max-h-[90vh] overflow-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background-secondary z-10">
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <SettingsIcon className="w-5 h-5 text-accent" />
             Settings
@@ -204,7 +204,7 @@ export function Settings({ onClose }: SettingsProps) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -212,7 +212,7 @@ export function Settings({ onClose }: SettingsProps) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
                 className={cn(
-                  'flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
+                  'flex-1 flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-3 text-xs md:text-sm font-medium transition-colors whitespace-nowrap min-w-fit',
                   activeTab === tab.id
                     ? 'text-accent border-b-2 border-accent'
                     : 'text-foreground-muted hover:text-foreground'

@@ -283,21 +283,21 @@ export function SmartBattleCardCreator() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden max-w-full">
       <div>
-        <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
-          <Sparkles className="w-7 h-7 text-accent" />
+        <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2 md:gap-3 flex-wrap">
+          <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-accent" />
           Create Battle Card
-          <span className="text-sm font-normal bg-accent/20 text-accent px-2 py-1 rounded-full">
+          <span className="text-xs md:text-sm font-normal bg-accent/20 text-accent px-2 py-1 rounded-full">
             AI-Powered
           </span>
         </h2>
-        <p className="text-foreground-secondary mt-1">
+        <p className="text-sm md:text-base text-foreground-secondary mt-1">
           Select instrument → AI analyzes chart → Get complete 4-scenario setup
         </p>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
         {/* Left Column - Chart & Controls */}
         <div className="space-y-4">
           <div className="card p-4">

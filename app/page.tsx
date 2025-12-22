@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { TopBar } from '@/components/dashboard/TopBar';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { SmartBattleCardCreator } from '@/components/battle-card/SmartBattleCardCreator';
 import { Journal } from '@/components/dashboard/Journal';
 import { AIChat } from '@/components/ai-mentor/AIChat';
+import { FloatingAIMentor } from '@/components/ai-mentor/FloatingAIMentor';
 import { MarketScanner } from '@/components/scanner/MarketScanner';
 import { WelcomeTour } from '@/components/onboarding/WelcomeTour';
+import { MobileNav } from '@/components/dashboard/MobileNav';
 import { useUIStore } from '@/lib/stores';
 import { useBinanceWebSocket } from '@/lib/hooks/useBinanceWebSocket';
 import { useMarketDataStore } from '@/lib/stores';
@@ -17,12 +19,21 @@ import { usePriceMonitor } from '@/lib/hooks/usePriceMonitor';
 export default function Home() {
   const { activeView, showAIChat, toggleAIChat, showTour, setShowTour, completeTour } = useUIStore();
   const watchlist = useMarketDataStore(state => state.watchlist);
+  const [isMobile, setIsMobile] = useState(false);
   
   // Connect to Binance Futures WebSocket for real-time prices
   const { isConnected } = useBinanceWebSocket(watchlist);
   
   // Enable price monitoring for alerts and auto-trading
   usePriceMonitor();
+  
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Check if first-time user and show tour
   useEffect(() => {
@@ -54,26 +65,31 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen bg-background flex overflow-x-hidden">
+      {/* Desktop Sidebar - hidden on mobile */}
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
       
       {/* Main Content */}
-      <div className="flex-1 ml-64">
+      <div className="flex-1 md:ml-64 min-w-0 overflow-x-hidden">
         {/* Top Bar */}
         <TopBar isConnected={isConnected} />
         
-        {/* Page Content */}
-        <main className="p-6 pt-20">
+        {/* Page Content - extra bottom padding on mobile for nav */}
+        <main className="p-3 md:p-6 pt-16 md:pt-20 pb-20 md:pb-6">
           {renderContent()}
         </main>
       </div>
       
-      {/* AI Chat Slide-out Panel */}
-      {showAIChat && activeView !== 'chat' && (
-        <div className="fixed right-0 top-0 h-full w-[520px] bg-background-secondary border-l border-border shadow-2xl z-50 animate-slide-up">
-          <AIChat onClose={toggleAIChat} />
-        </div>
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden">
+        <MobileNav />
+      </div>
+      
+      {/* Floating AI Mentor - available on all tabs */}
+      {activeView !== 'chat' && (
+        <FloatingAIMentor />
       )}
       
       {/* Welcome Tour */}

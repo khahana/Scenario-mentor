@@ -213,6 +213,7 @@ interface FuturesData {
   openInterest?: number;
   oiChange24h?: number;
   volume24h?: number;
+  priceChange24h?: number;
 }
 
 function analyzeAsset(symbol: string, priceData: any, futuresData?: FuturesData): ScanResult {
@@ -480,11 +481,20 @@ export function MarketScanner() {
       // Fetch open interest for all symbols
       const oiPromises = symbols.map(async (symbol) => {
         try {
-          const response = await fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data) {
-              return { symbol, openInterest: parseFloat(data.openInterest) };
+          // Fetch OI and mark price together to calculate USD value
+          const [oiResponse, priceResponse] = await Promise.all([
+            fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`),
+            fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${symbol}`)
+          ]);
+          
+          if (oiResponse.ok && priceResponse.ok) {
+            const oiData = await oiResponse.json();
+            const priceData = await priceResponse.json();
+            if (oiData && priceData) {
+              const oiQuantity = parseFloat(oiData.openInterest);
+              const markPrice = parseFloat(priceData.markPrice);
+              // OI in USD = quantity * mark price
+              return { symbol, openInterest: oiQuantity * markPrice };
             }
           }
         } catch (e) {
@@ -503,21 +513,41 @@ export function MarketScanner() {
               return { 
                 symbol, 
                 volume24h: parseFloat(data.quoteVolume),
-                // Estimate OI change based on volume vs avg (rough proxy)
-                oiChange24h: parseFloat(data.priceChangePercent) * 0.5 // Simplified estimate
+                priceChange24h: parseFloat(data.priceChangePercent)
               };
             }
           }
         } catch (e) {
           console.warn(`Failed to fetch ticker for ${symbol}`);
         }
-        return { symbol, volume24h: undefined, oiChange24h: undefined };
+        return { symbol, volume24h: undefined, priceChange24h: undefined };
+      });
+
+      // Fetch OI statistics for real OI change
+      const oiStatsPromises = symbols.map(async (symbol) => {
+        try {
+          // Get OI from 24h ago vs now using Binance futures statistics
+          const response = await fetch(`https://fapi.binance.com/futures/data/openInterestHist?symbol=${symbol}&period=1d&limit=2`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.length >= 2) {
+              const currentOI = parseFloat(data[0].sumOpenInterest);
+              const prevOI = parseFloat(data[1].sumOpenInterest);
+              const oiChange = ((currentOI - prevOI) / prevOI) * 100;
+              return { symbol, oiChange24h: oiChange };
+            }
+          }
+        } catch (e) {
+          console.warn(`Failed to fetch OI stats for ${symbol}`);
+        }
+        return { symbol, oiChange24h: undefined };
       });
       
-      const [fundingResults, oiResults, tickerResults] = await Promise.all([
+      const [fundingResults, oiResults, tickerResults, oiStatsResults] = await Promise.all([
         Promise.all(fundingPromises),
         Promise.all(oiPromises),
-        Promise.all(tickerPromises)
+        Promise.all(tickerPromises),
+        Promise.all(oiStatsPromises)
       ]);
       
       // Combine results
@@ -525,12 +555,14 @@ export function MarketScanner() {
         const funding = fundingResults.find(f => f.symbol === symbol);
         const oi = oiResults.find(o => o.symbol === symbol);
         const ticker = tickerResults.find(t => t.symbol === symbol);
+        const oiStats = oiStatsResults.find(o => o.symbol === symbol);
         
         futuresData[symbol] = {
           fundingRate: funding?.fundingRate,
           openInterest: oi?.openInterest,
-          oiChange24h: ticker?.oiChange24h,
-          volume24h: ticker?.volume24h
+          oiChange24h: oiStats?.oiChange24h,
+          volume24h: ticker?.volume24h,
+          priceChange24h: ticker?.priceChange24h
         };
       }
     } catch (error) {
@@ -986,18 +1018,26 @@ In 2-3 sentences, give a quick trading thesis considering the funding and OI dat
                     <div className="text-center">
                       <p className="text-[10px] text-foreground-muted uppercase tracking-wider">Open Interest</p>
                       <p className="text-sm font-mono font-bold text-foreground-secondary">
-                        {result.openInterest >= 1000000 
-                          ? `${(result.openInterest / 1000000).toFixed(1)}M` 
+                        {result.openInterest >= 1000000000
+                          ? `$${(result.openInterest / 1000000000).toFixed(2)}B`
+                          : result.openInterest >= 1000000 
+                          ? `$${(result.openInterest / 1000000).toFixed(1)}M` 
                           : result.openInterest >= 1000 
-                          ? `${(result.openInterest / 1000).toFixed(0)}K`
-                          : result.openInterest.toFixed(0)}
+                          ? `$${(result.openInterest / 1000).toFixed(0)}K`
+                          : `$${result.openInterest.toFixed(0)}`}
                       </p>
                       {result.oiChange24h !== undefined && (
                         <p className={cn(
-                          "text-[9px]",
-                          result.oiChange24h > 0 ? 'text-success' : 'text-danger'
+                          "text-[9px] font-medium",
+                          result.oiChange24h > 2 ? 'text-success' : 
+                          result.oiChange24h < -2 ? 'text-danger' : 
+                          'text-foreground-muted'
                         )}>
-                          {result.oiChange24h > 0 ? '↑' : '↓'} {Math.abs(result.oiChange24h).toFixed(1)}% 24h
+                          {result.oiChange24h > 0 ? '↑' : '↓'} {Math.abs(result.oiChange24h).toFixed(1)}% 
+                          {result.oiChange24h > 5 && result.change24h > 1 ? ' 🐂' : 
+                           result.oiChange24h > 5 && result.change24h < -1 ? ' 🐻' :
+                           result.oiChange24h < -5 && result.change24h > 1 ? ' ⚠️' :
+                           result.oiChange24h < -5 && result.change24h < -1 ? ' 💨' : ''}
                         </p>
                       )}
                     </div>

@@ -56,27 +56,27 @@ export function Dashboard() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 md:space-y-6 animate-fade-in overflow-x-hidden max-w-full">
       {/* Trading Settings Quick View */}
-      <div className="flex items-center justify-between p-3 bg-background-secondary rounded-xl border border-border">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-accent" />
-            <span className="text-sm text-foreground-muted">Fund:</span>
-            <span className="text-sm font-bold text-foreground">${balance.toLocaleString()}</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-background-secondary rounded-xl border border-border gap-3 overflow-hidden">
+        <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-6">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <DollarSign className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent" />
+            <span className="text-xs md:text-sm text-foreground-muted">Fund:</span>
+            <span className="text-xs md:text-sm font-bold text-foreground">${balance.toLocaleString()}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-foreground-muted">Position:</span>
-            <span className="text-sm font-bold text-foreground">${settings.defaultSize}</span>
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <span className="text-xs md:text-sm text-foreground-muted">Position:</span>
+            <span className="text-xs md:text-sm font-bold text-foreground">${settings.defaultSize}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-foreground-muted">Leverage:</span>
-            <span className="text-sm font-bold text-warning">{settings.leverage}x</span>
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <span className="text-xs md:text-sm text-foreground-muted">Leverage:</span>
+            <span className="text-xs md:text-sm font-bold text-warning">{settings.leverage}x</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-foreground-muted">Auto Trade:</span>
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <span className="text-xs md:text-sm text-foreground-muted">Auto:</span>
             <span className={cn(
-              'text-sm font-bold',
+              'text-xs md:text-sm font-bold',
               settings.autoExecuteOnTrigger ? 'text-success' : 'text-foreground-muted'
             )}>
               {settings.autoExecuteOnTrigger ? 'ON' : 'OFF'}
@@ -85,10 +85,11 @@ export function Dashboard() {
         </div>
         <button 
           onClick={() => {/* Would need to pass setShowSettings callback */}}
-          className="text-xs text-foreground-muted hover:text-accent flex items-center gap-1"
+          className="text-xs text-foreground-muted hover:text-accent flex items-center gap-1 self-end md:self-auto"
         >
           <Settings className="w-3 h-3" />
-          Edit in Settings
+          <span className="hidden md:inline">Edit in Settings</span>
+          <span className="md:hidden">Settings</span>
         </button>
       </div>
 
@@ -293,7 +294,7 @@ export function Dashboard() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 md:gap-4 overflow-hidden">
               {activeCards.map((card) => (
                 <LiveBattleCard 
                   key={card.id} 
@@ -306,8 +307,8 @@ export function Dashboard() {
           {/* Draft Cards */}
           {draftCards.length > 0 && (
             <>
-              <h3 className="text-lg font-medium text-foreground-secondary mt-6">Drafts</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <h3 className="text-base md:text-lg font-medium text-foreground-secondary mt-4 md:mt-6">Drafts</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 overflow-hidden">
                 {draftCards.slice(0, 3).map((card) => (
                   <div 
                     key={card.id}

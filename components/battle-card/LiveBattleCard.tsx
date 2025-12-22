@@ -224,17 +224,17 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
   return (
     <div 
       className={cn(
-        'rounded-xl border-2 transition-all duration-300 p-4',
+        'rounded-xl border-2 transition-all duration-300 p-3 md:p-4 overflow-hidden w-full max-w-full',
         getStatusColor()
       )}
       style={{ backgroundColor: '#080810' }}
     >
       {/* Header */}
-      <div>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+      <div className="overflow-hidden">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1 overflow-hidden">
             <div className={cn(
-              'w-12 h-12 rounded-xl flex items-center justify-center',
+              'w-9 h-9 md:w-12 md:h-12 rounded-xl flex items-center justify-center flex-shrink-0',
               position 
                 ? 'bg-accent/20' 
                 : closestScenario?.status === 'at_trigger' 
@@ -244,23 +244,23 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                     : 'bg-accent/10'
             )}>
               {position ? (
-                <Activity className="w-6 h-6 text-accent" />
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-accent" />
               ) : (
                 <Target className={cn(
-                  'w-6 h-6',
+                  'w-5 h-5 md:w-6 md:h-6',
                   closestScenario?.status === 'at_trigger' ? 'text-success' 
                   : closestScenario?.status === 'approaching' ? 'text-warning'
                   : 'text-accent'
                 )} />
               )}
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-lg text-foreground">{card.instrument}</h3>
-                <span className="text-sm text-foreground-muted">{card.timeframe}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                <h3 className="font-bold text-base md:text-lg text-foreground">{card.instrument}</h3>
+                <span className="text-xs md:text-sm text-foreground-muted">{card.timeframe}</span>
                 {position && (
                   <span className={cn(
-                    'badge text-xs',
+                    'badge text-[10px] md:text-xs',
                     position.direction === 'long' ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
                   )}>
                     {position.direction.toUpperCase()}
@@ -268,23 +268,23 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                 )}
               </div>
               {card.thesis && (
-                <p className="text-sm text-foreground-secondary mt-1 line-clamp-2">
+                <p className="text-xs md:text-sm text-foreground-secondary mt-1 line-clamp-2">
                   <span className="text-accent font-medium">Thesis:</span> {card.thesis}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             {/* Live Price */}
             {currentPrice && (
               <div className="text-right">
-                <p className="font-mono font-bold text-lg text-foreground">
+                <p className="font-mono font-bold text-sm md:text-lg text-foreground">
                   ${formatPrice(currentPrice)}
                 </p>
                 {priceChange !== undefined && (
                   <p className={cn(
-                    'text-xs font-mono',
+                    'text-[10px] md:text-xs font-mono',
                     priceChange >= 0 ? 'text-success' : 'text-danger'
                   )}>
                     {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
@@ -295,12 +295,12 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             
             <button
               onClick={() => setExpanded(!expanded)}
-              className="p-2 hover:bg-background-tertiary rounded-lg transition-colors"
+              className="p-1.5 md:p-2 hover:bg-background-tertiary rounded-lg transition-colors"
             >
               {expanded ? (
-                <ChevronUp className="w-5 h-5 text-foreground-muted" />
+                <ChevronUp className="w-4 h-4 md:w-5 md:h-5 text-foreground-muted" />
               ) : (
-                <ChevronDown className="w-5 h-5 text-foreground-muted" />
+                <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-foreground-muted" />
               )}
             </button>
           </div>
@@ -308,14 +308,14 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
 
         {/* RE-ASSESSMENT PANEL - Only show when no position */}
         {!position && expanded && (
-          <div className="mt-4 p-3 rounded-xl border border-border/50 bg-background-secondary/30">
-            <div className="flex items-center justify-between mb-2">
+          <div className="mt-3 md:mt-4 p-2 md:p-3 rounded-xl border border-border/50 bg-background-secondary/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-medium text-foreground">Setup Validation</span>
+                <span className="text-xs md:text-sm font-medium text-foreground">Setup Validation</span>
                 {card.lastAIReassess && (
-                  <span className="text-xs text-foreground-muted">
-                    Last: {timeAgo(new Date(card.lastAIReassess))}
+                  <span className="text-[10px] md:text-xs text-foreground-muted">
+                    {timeAgo(new Date(card.lastAIReassess))}
                   </span>
                 )}
               </div>
@@ -334,7 +334,8 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                   title={aiCooldown > 0 ? `Available in ${formatCooldown(aiCooldown)}` : 'AI-powered analysis (15min cooldown)'}
                 >
                   <Brain className={cn('w-3.5 h-3.5', isAIReassessing && 'animate-pulse')} />
-                  {isAIReassessing ? 'Analyzing...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'AI Reassess'}
+                  <span className="hidden sm:inline">{isAIReassessing ? 'Analyzing...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'AI Reassess'}</span>
+                  <span className="sm:hidden">{isAIReassessing ? '...' : aiCooldown > 0 ? formatCooldown(aiCooldown) : 'Reassess'}</span>
                 </button>
               </div>
             </div>
@@ -342,7 +343,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             {/* Reassessment Result */}
             {reassessmentResult && (
               <div className={cn(
-                'mt-2 p-2 rounded-lg text-xs',
+                'mt-2 p-2 rounded-lg text-[10px] md:text-xs',
                 reassessmentResult.includes('❌') || reassessmentResult.includes('INVALIDATE')
                   ? 'bg-danger/10 border border-danger/30 text-danger'
                   : reassessmentResult.includes('⚠️') || reassessmentResult.includes('ADJUST')
@@ -350,7 +351,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                     : 'bg-success/10 border border-success/30 text-success'
               )}>
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 mt-0.5" />
                   <p className="leading-relaxed whitespace-pre-wrap">{reassessmentResult}</p>
                 </div>
               </div>
@@ -358,7 +359,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
             
             {/* Show stored notes if available and no fresh result */}
             {!reassessmentResult && card.reassessmentNotes && (
-              <div className="mt-2 p-2 rounded-lg bg-background-tertiary/50 text-xs text-foreground-secondary">
+              <div className="mt-2 p-2 rounded-lg bg-background-tertiary/50 text-[10px] md:text-xs text-foreground-secondary">
                 <p className="leading-relaxed whitespace-pre-wrap">{card.reassessmentNotes}</p>
               </div>
             )}
@@ -368,31 +369,31 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
         {/* POSITION STATUS BANNER */}
         {position && livePnl && (
           <div className={cn(
-            'mt-4 p-4 rounded-xl border',
+            'mt-3 md:mt-4 p-3 md:p-4 rounded-xl border',
             livePnl.pnl >= 0 
               ? 'bg-success/10 border-success/30' 
               : 'bg-danger/10 border-danger/30'
           )}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-start md:items-center gap-2 md:gap-3">
                 <DollarSign className={cn(
-                  'w-6 h-6',
+                  'w-5 h-5 md:w-6 md:h-6 flex-shrink-0',
                   livePnl.pnl >= 0 ? 'text-success' : 'text-danger'
                 )} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">Open Position</p>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+                    <p className="text-xs md:text-sm font-medium text-foreground">Open Position</p>
                     <span 
-                      className="text-xs font-bold px-2 py-0.5 rounded"
+                      className="text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded"
                       style={{ 
                         backgroundColor: `${getScenarioColor(position.scenarioType)}20`,
                         color: getScenarioColor(position.scenarioType)
                       }}
                     >
-                      Scenario {position.scenarioType}
+                      {position.scenarioType}
                     </span>
                     <span className={cn(
-                      'text-xs font-semibold px-2 py-0.5 rounded',
+                      'text-[10px] md:text-xs font-semibold px-1.5 md:px-2 py-0.5 rounded',
                       position.direction === 'long' 
                         ? 'bg-success/20 text-success' 
                         : 'bg-danger/20 text-danger'
@@ -400,28 +401,28 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                       {position.direction === 'long' ? '↑ LONG' : '↓ SHORT'}
                     </span>
                     {livePnl.leverage > 1 && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-warning/20 text-warning">
+                      <span className="text-[10px] md:text-xs font-bold px-1.5 md:px-2 py-0.5 rounded bg-warning/20 text-warning">
                         {livePnl.leverage}x
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-foreground-secondary mt-0.5">
+                  <p className="text-xs md:text-sm text-foreground-secondary mt-0.5 truncate">
                     {position.scenarioName}
                   </p>
-                  <p className="text-xs text-foreground-muted">
-                    Entry: ${formatPrice(position.entryPrice)} | Size: ${position.size} {livePnl.leverage > 1 && `× ${livePnl.leverage}`}
+                  <p className="text-[10px] md:text-xs text-foreground-muted">
+                    Entry: ${formatPrice(position.entryPrice)} | Size: ${position.size}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right flex-shrink-0">
                 <p className={cn(
-                  'font-mono font-bold text-xl',
+                  'font-mono font-bold text-lg md:text-xl',
                   livePnl.pnl >= 0 ? 'text-success' : 'text-danger'
                 )}>
                   {livePnl.pnl >= 0 ? '+' : ''}${livePnl.pnl.toFixed(2)}
                 </p>
                 <p className={cn(
-                  'text-sm font-mono',
+                  'text-xs md:text-sm font-mono',
                   livePnl.pnl >= 0 ? 'text-success' : 'text-danger'
                 )}>
                   {livePnl.pnlPercent >= 0 ? '+' : ''}{livePnl.pnlPercent.toFixed(2)}% | {livePnl.rMultiple >= 0 ? '+' : ''}{livePnl.rMultiple.toFixed(1)}R
@@ -553,18 +554,18 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
         {/* TRIGGER ALERT (when no position yet) */}
         {!position && closestScenario && closestScenario.status !== 'far' && (
           <div className={cn(
-            'mt-4 p-3 rounded-xl flex items-center gap-3',
+            'mt-3 md:mt-4 p-2 md:p-3 rounded-xl flex items-center gap-2 md:gap-3 overflow-hidden',
             closestScenario.status === 'at_trigger' 
               ? 'bg-success/10 border border-success/30' 
               : 'bg-warning/10 border border-warning/30'
           )}>
             <Zap className={cn(
-              'w-5 h-5',
+              'w-4 h-4 md:w-5 md:h-5 flex-shrink-0',
               closestScenario.status === 'at_trigger' ? 'text-success' : 'text-warning'
             )} />
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <p className={cn(
-                'font-medium text-sm',
+                'font-medium text-xs md:text-sm truncate',
                 closestScenario.status === 'at_trigger' ? 'text-success' : 'text-warning'
               )}>
                 {closestScenario.status === 'at_trigger' 
@@ -572,7 +573,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                   : `⚡ SCENARIO ${closestScenario.scenario.type} - ${closestScenario.distance.toFixed(1)}% away`
                 }
               </p>
-              <p className="text-xs text-foreground-muted">{closestScenario.message}</p>
+              <p className="text-[10px] md:text-xs text-foreground-muted truncate">{closestScenario.message}</p>
             </div>
           </div>
         )}
@@ -580,9 +581,9 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
 
       {/* Expanded Content */}
       {expanded && (
-        <div className="border-t border-border">
+        <div className="border-t border-border overflow-hidden">
           {/* Primary Scenarios (A & B) */}
-          <div className="p-4 grid grid-cols-2 gap-4">
+          <div className="p-3 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             {triggerStatuses
               .filter(({ scenario }) => scenario.type === 'A' || scenario.type === 'B')
               .map(({ scenario, status, distance }) => (
@@ -601,9 +602,9 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
           
           {/* Secondary Scenarios (C & D) - Compact Row */}
           {triggerStatuses.some(({ scenario }) => scenario.type === 'C' || scenario.type === 'D') && (
-            <div className="px-4 pb-3">
-              <div className="flex items-center gap-3 p-2 bg-background-tertiary/50 rounded-lg flex-wrap">
-                <span className="text-xs text-foreground-muted">Alt:</span>
+            <div className="px-3 md:px-4 pb-3 overflow-hidden">
+              <div className="flex items-center gap-2 p-2 bg-background-tertiary/50 rounded-lg overflow-x-auto">
+                <span className="text-[10px] md:text-xs text-foreground-muted flex-shrink-0">Alt:</span>
                 {triggerStatuses
                   .filter(({ scenario }) => scenario.type === 'C' || scenario.type === 'D')
                   .map(({ scenario, status, distance }) => {
@@ -611,15 +612,15 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
                     return (
                       <div 
                         key={scenario.type}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background-tertiary flex-1 min-w-[200px]"
+                        className="flex items-center gap-1.5 md:gap-2 px-2 py-1 md:py-1.5 rounded-md bg-background-tertiary flex-shrink-0"
                         style={{ borderLeft: `3px solid ${color}` }}
                       >
-                        <span className="text-xs font-bold" style={{ color }}>{scenario.type}</span>
-                        <span className="text-xs text-foreground-secondary flex-1">{scenario.name}</span>
-                        <span className="text-xs text-foreground-muted">{scenario.probability}%</span>
+                        <span className="text-[10px] md:text-xs font-bold" style={{ color }}>{scenario.type}</span>
+                        <span className="text-[10px] md:text-xs text-foreground-secondary max-w-[80px] md:max-w-none truncate">{scenario.name}</span>
+                        <span className="text-[10px] md:text-xs text-foreground-muted">{scenario.probability}%</span>
                         {status !== 'far' && (
                           <span className={cn(
-                            'text-[10px] px-1.5 py-0.5 rounded',
+                            'text-[9px] md:text-[10px] px-1 py-0.5 rounded',
                             status === 'at_trigger' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
                           )}>
                             {distance.toFixed(1)}%
@@ -633,7 +634,7 @@ export function LiveBattleCard({ card, onClose }: LiveBattleCardProps) {
           )}
 
           {/* Chart Toggle */}
-          <div className="px-4 pb-4">
+          <div className="px-3 md:px-4 pb-4">
             <button
               onClick={() => setShowChart(!showChart)}
               className="w-full btn btn-secondary text-sm"
@@ -786,7 +787,7 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
   return (
     <div 
       className={cn(
-        'p-3 rounded-xl border transition-all',
+        'p-2 md:p-3 rounded-xl border transition-all overflow-hidden',
         isActiveScenario && 'ring-2 ring-accent',
         status === 'at_trigger' && !isActiveScenario && 'ring-2 ring-success animate-pulse',
         status === 'approaching' && !isActiveScenario && 'ring-1 ring-warning'
@@ -797,16 +798,16 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
       }}
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2">
           <span 
-            className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white text-base"
+            className="w-7 h-7 md:w-9 md:h-9 rounded-lg flex items-center justify-center font-bold text-white text-sm md:text-base flex-shrink-0"
             style={{ backgroundColor: color }}
           >
             {scenario.type}
           </span>
           {direction && (
             <span className={cn(
-              'text-xs font-bold px-1.5 py-0.5 rounded',
+              'text-[10px] md:text-xs font-bold px-1 md:px-1.5 py-0.5 rounded',
               direction === 'long' 
                 ? 'bg-success/20 text-success' 
                 : 'bg-danger/20 text-danger'
@@ -822,25 +823,25 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
               className="p-1 rounded hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
               title="Edit levels"
             >
-              <Edit3 className="w-3.5 h-3.5" />
+              <Edit3 className="w-3 h-3 md:w-3.5 md:h-3.5" />
             </button>
           )}
-          <span className="text-base font-bold" style={{ color }}>
+          <span className="text-sm md:text-base font-bold" style={{ color }}>
             {scenario.probability}%
           </span>
         </div>
       </div>
       
       {/* Scenario Name */}
-      <p className="text-sm font-semibold text-foreground mb-1">
+      <p className="text-xs md:text-sm font-semibold text-foreground mb-1 truncate">
         {scenario.name}
       </p>
       
       {/* Scenario Thesis/Description - More Prominent */}
       {scenario.description && (
-        <div className="mb-3 p-2 rounded-lg bg-background/50 border border-border/30">
-          <p className="text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Thesis</p>
-          <p className="text-xs text-foreground-secondary leading-relaxed">
+        <div className="mb-2 md:mb-3 p-1.5 md:p-2 rounded-lg bg-background/50 border border-border/30">
+          <p className="text-[9px] md:text-[10px] text-foreground-muted uppercase tracking-wider mb-0.5">Thesis</p>
+          <p className="text-[10px] md:text-xs text-foreground-secondary leading-relaxed line-clamp-3 md:line-clamp-none">
             {scenario.description}
           </p>
         </div>
@@ -849,7 +850,7 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
       {isEditing ? (
         /* Edit Mode */
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-[10px] text-success font-semibold uppercase mb-1 block">Take Profit</label>
               <input
@@ -894,16 +895,16 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
           </div>
         </div>
       ) : scenario.entryPrice ? (
-        <div className="space-y-3">
-          {/* Professional Trade Levels Grid */}
-          <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-2 md:space-y-3">
+          {/* Professional Trade Levels Grid - Horizontal row on mobile */}
+          <div className="flex gap-1.5 md:gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
             {/* Take Profit */}
-            <div className="relative overflow-hidden rounded-lg bg-success/5 border border-success/20 p-2">
+            <div className="relative overflow-hidden rounded-lg bg-success/5 border border-success/20 p-1.5 md:p-2 flex-1 min-w-[70px] md:min-w-[90px]">
               <div className="absolute top-0 left-0 w-1 h-full bg-success" />
-              <p className="text-[10px] text-success/70 font-semibold uppercase tracking-wider mb-0.5">Take Profit</p>
-              <p className="text-sm font-mono font-bold text-success">${formatPrice(scenario.target1 || 0)}</p>
+              <p className="text-[8px] md:text-[10px] text-success/70 font-semibold uppercase tracking-wider mb-0.5">TP</p>
+              <p className="text-[11px] md:text-sm font-mono font-bold text-success">${formatPrice(scenario.target1 || 0)}</p>
               {scenario.target1 && (
-                <p className="text-[10px] font-mono text-success/60">
+                <p className="text-[8px] md:text-[10px] font-mono text-success/60">
                   +{((scenario.target1 - scenario.entryPrice) / scenario.entryPrice * 100).toFixed(1)}%
                 </p>
               )}
@@ -911,7 +912,7 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
             
             {/* Entry Price */}
             <div className={cn(
-              "relative overflow-hidden rounded-lg p-2 border",
+              "relative overflow-hidden rounded-lg p-1.5 md:p-2 border flex-1 min-w-[70px] md:min-w-[90px]",
               status === 'at_trigger' 
                 ? 'bg-accent/10 border-accent/40' 
                 : 'bg-foreground-muted/5 border-border/30'
@@ -921,25 +922,25 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
                 status === 'at_trigger' ? 'bg-accent animate-pulse' : 'bg-foreground-muted/30'
               )} />
               <p className={cn(
-                "text-[10px] font-semibold uppercase tracking-wider mb-0.5",
+                "text-[8px] md:text-[10px] font-semibold uppercase tracking-wider mb-0.5",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground-muted'
               )}>Entry</p>
               <p className={cn(
-                "text-sm font-mono font-bold",
+                "text-[11px] md:text-sm font-mono font-bold",
                 status === 'at_trigger' ? 'text-accent' : 'text-foreground'
               )}>
                 ${formatPrice(scenario.entryPrice)}
               </p>
-              <p className="text-[9px] text-foreground-muted/60">±0.1% trigger</p>
+              <p className="text-[7px] md:text-[9px] text-foreground-muted/60">±0.1%</p>
             </div>
             
             {/* Stop Loss */}
-            <div className="relative overflow-hidden rounded-lg bg-danger/5 border border-danger/20 p-2">
+            <div className="relative overflow-hidden rounded-lg bg-danger/5 border border-danger/20 p-1.5 md:p-2 flex-1 min-w-[70px] md:min-w-[90px]">
               <div className="absolute top-0 left-0 w-1 h-full bg-danger" />
-              <p className="text-[10px] text-danger/70 font-semibold uppercase tracking-wider mb-0.5">Stop Loss</p>
-              <p className="text-sm font-mono font-bold text-danger">${formatPrice(scenario.stopLoss || 0)}</p>
+              <p className="text-[8px] md:text-[10px] text-danger/70 font-semibold uppercase tracking-wider mb-0.5">SL</p>
+              <p className="text-[11px] md:text-sm font-mono font-bold text-danger">${formatPrice(scenario.stopLoss || 0)}</p>
               {scenario.stopLoss && (
-                <p className="text-[10px] font-mono text-danger/60">
+                <p className="text-[8px] md:text-[10px] font-mono text-danger/60">
                   {((scenario.stopLoss - scenario.entryPrice) / scenario.entryPrice * 100).toFixed(1)}%
                 </p>
               )}
@@ -968,31 +969,31 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
           )}
           
           {/* Stats Row */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/30">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/30">
+            <div className="flex flex-wrap items-center gap-2 md:gap-4">
               {/* R:R Ratio */}
               {scenario.stopLoss && scenario.target1 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-foreground-muted uppercase">R:R</span>
-                  <span className="text-xs font-mono font-bold text-accent">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] md:text-[10px] text-foreground-muted uppercase">R:R</span>
+                  <span className="text-[10px] md:text-xs font-mono font-bold text-accent">
                     1:{(Math.abs(scenario.target1 - scenario.entryPrice) / Math.abs(scenario.entryPrice - scenario.stopLoss)).toFixed(1)}
                   </span>
                 </div>
               )}
               {/* Risk % */}
               {scenario.stopLoss && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-foreground-muted uppercase">Risk</span>
-                  <span className="text-xs font-mono font-bold text-danger">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] md:text-[10px] text-foreground-muted uppercase">Risk</span>
+                  <span className="text-[10px] md:text-xs font-mono font-bold text-danger">
                     {(Math.abs(scenario.entryPrice - scenario.stopLoss) / scenario.entryPrice * 100).toFixed(1)}%
                   </span>
                 </div>
               )}
               {/* Reward % */}
               {scenario.target1 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-foreground-muted uppercase">Reward</span>
-                  <span className="text-xs font-mono font-bold text-success">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] md:text-[10px] text-foreground-muted uppercase">Reward</span>
+                  <span className="text-[10px] md:text-xs font-mono font-bold text-success">
                     +{(Math.abs(scenario.target1 - scenario.entryPrice) / scenario.entryPrice * 100).toFixed(1)}%
                   </span>
                 </div>
@@ -1001,7 +1002,7 @@ function ScenarioStatusCard({ scenario, status, distance, currentPrice, isActive
             
             {/* Distance Badge */}
             <div className={cn(
-              'text-xs font-mono font-semibold px-2 py-0.5 rounded',
+              'text-[10px] md:text-xs font-mono font-semibold px-1.5 md:px-2 py-0.5 rounded',
               status === 'at_trigger' ? 'bg-success/20 text-success' :
               status === 'approaching' ? 'bg-warning/20 text-warning' :
               'bg-background-tertiary text-foreground-muted'

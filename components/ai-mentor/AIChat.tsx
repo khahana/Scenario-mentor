@@ -270,19 +270,19 @@ export function AIChat({ onClose, fullScreen = false }: AIChatProps) {
   };
 
   return (
-    <div className={cn('flex flex-col h-full', fullScreen ? 'bg-background' : 'bg-background-secondary')}>
+    <div className={cn('flex flex-col h-full overflow-x-hidden', fullScreen ? 'bg-background' : 'bg-background-secondary')}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-accent flex items-center justify-center">
-            <Brain className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between p-3 md:p-4 border-b border-border">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-purple-500 to-accent flex items-center justify-center flex-shrink-0">
+            <Brain className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </div>
-          <div>
-            <h2 className="font-semibold text-foreground">AI Mentor</h2>
-            <p className="text-xs text-foreground-muted">{AI_MODES.find(m => m.id === mode)?.description}</p>
+          <div className="min-w-0">
+            <h2 className="font-semibold text-foreground text-sm md:text-base">AI Mentor</h2>
+            <p className="text-[10px] md:text-xs text-foreground-muted truncate">{AI_MODES.find(m => m.id === mode)?.description}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
           {openPositions.length > 0 && (
             <span className="text-xs bg-warning/20 text-warning px-2 py-1 rounded-full">
               {openPositions.length} open trade{openPositions.length > 1 ? 's' : ''}
